@@ -850,7 +850,6 @@ class ONYPHEConnector:
                 # OQL time filter functions; if the user already supplied one, skip the default
                 OQL_TIME_FILTERS = (
                     "-since:",
-                    "-until:",
                     "-weekago:",
                     "-dayago:",
                     "-monthago:",
