@@ -857,17 +857,18 @@ class ONYPHEConnector:
                 user_has_time_filter = any(
                     tf in ctifilter for tf in OQL_TIME_FILTERS
                 )
-                time_filter = (
-                    "" if user_has_time_filter else f" -since:{self.config.time_since}"
-                )
+                oql_parts = [ctifilter.strip()]
+                if not user_has_time_filter:
+                    oql_parts.append(f"-since:{self.config.time_since}")
 
                 if self.config.import_search_results:
                     # Get full ONYPHE API Response
-                    oql = f"{ctifilter}{time_filter}"
+                    oql = " ".join(oql_parts)
                 else:
                     # Get summary fields only
                     summary_keys_csv = ",".join(summary for summary, _ in SUMMARYS)
-                    oql = f"{ctifilter}{time_filter} -fields:{summary_keys_csv}"
+                    oql_parts.append(f"-fields:{summary_keys_csv}")
+                    oql = " ".join(oql_parts)
 
                 self.helper.log_debug(f"Trying ONYPHE query for : {oql}")
 
