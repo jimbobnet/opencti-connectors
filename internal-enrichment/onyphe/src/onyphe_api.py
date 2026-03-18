@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import time
+
 import requests
 from requests.compat import urljoin
 
@@ -11,13 +13,14 @@ class Onyphe:
     :type key: str
     """
 
-    def __init__(self, key: str, base_url: str):
+    def __init__(self, key: str, base_url: str, max_retries: int = 3):
         """Intializes the API object
         :param key: The Onyphe API key
         :type key: str
         """
         self.api_key = key
         self.base_url = base_url
+        self.max_retries = max_retries
         self._session = requests.Session()
 
     def _request(self, path: str, query_params=None):
@@ -33,13 +36,22 @@ class Onyphe:
         query_params["apikey"] = self.api_key
         url = urljoin(self.base_url, path)
 
-        try:
-            response = self._session.get(url=url, params=query_params)
-        except Exception as exc:
-            raise APIGeneralError(f"Couldn't connect to ONYPHE API : {url}") from exc
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = self._session.get(url=url, params=query_params)
+            except Exception as exc:
+                raise APIGeneralError(f"Couldn't connect to ONYPHE API : {url}") from exc
 
-        if response.status_code == 429:
-            raise APIRateLimiting(response.text)
+            if response.status_code != 429:
+                break
+
+            if attempt == self.max_retries:
+                raise APIRateLimiting(response.text)
+
+            retry_after = response.headers.get("Retry-After")
+            wait = int(retry_after) if retry_after else 2 ** (attempt + 1)
+            time.sleep(wait)
+
         try:
             response_data = response.json()
         except Exception as exc:
