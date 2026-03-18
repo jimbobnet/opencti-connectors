@@ -34,7 +34,7 @@ class Onyphe:
         url = urljoin(self.base_url, path)
 
         try:
-            response = self._session.get(url=url, data=query_params)
+            response = self._session.get(url=url, params=query_params)
         except Exception as exc:
             raise APIGeneralError(f"Couldn't connect to ONYPHE API : {url}") from exc
 
