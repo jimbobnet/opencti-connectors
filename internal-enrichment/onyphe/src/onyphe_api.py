@@ -62,23 +62,11 @@ class Onyphe:
             url_path = f"summary/ip/{data}"
         return self._request(path=url_path)
 
-    def search_oql(self, oql: str):
+    def search_oql(self, oql: str, size: int = None):
         """Return data from specified category using Search API and the provided data as the OQL filter."""
         url_path = f"search/?q={oql}"
-        return self._request(path=url_path)
-
-    def count(self, oql: str):
-        """Return number of results using Search API and the provided data as the OQL filter."""
-        url_path = f"search/?q={oql}"
-        queryargs = {
-            "page": 1,
-            "size": 1,
-        }
-        results = self._request(path=url_path, query_params=queryargs)
-        if "total" in results:
-            return results["total"]
-        else:
-            raise OtherError("Error: Can't parse total from API results")
+        query_params = {"size": size} if size is not None else None
+        return self._request(path=url_path, query_params=query_params)
 
 
 class APIError(Exception):
