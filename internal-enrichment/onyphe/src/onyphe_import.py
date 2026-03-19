@@ -824,20 +824,16 @@ class ONYPHEConnector:
             else:
                 score = self.helper.get_attribute_in_extension("score", stix_entity)
 
-            threats = []
-            # Resolve indicates
+            # Resolve indicates — standard_id (STIX ID) is already included in the
+            # default relationship properties, so no per-relationship API calls needed.
             relationships = self.helper.api.stix_core_relationship.list(
                 relationship_type="indicates", fromId=opencti_entity["id"]
             )
-            for relationship in relationships:
-                indicates_stix_entity = (
-                    self.helper.api.stix2.get_stix_bundle_or_object_from_entity_id(
-                        entity_type=relationship["to"]["entity_type"],
-                        entity_id=relationship["to"]["id"],
-                        only_entity=True,
-                    )
-                )
-                threats.append(indicates_stix_entity)
+            threats = [
+                rel["to"]["standard_id"]
+                for rel in relationships
+                if rel.get("to") and rel["to"].get("standard_id")
+            ]
 
             ctifilter = stix_entity["pattern"]
 
@@ -942,14 +938,14 @@ class ONYPHEConnector:
                     for bundle_object in bundle:
                         target_id = bundle_object["id"]
                         if bundle_object["type"] not in ["indicator", "relationship"]:
-                            for threat in threats:
-                                if target_id != threat["id"]:
+                            for threat_id in threats:
+                                if target_id != threat_id:
                                     rel = self._generate_stix_relationship(
-                                        target_id, "related-to", threat["id"]
+                                        target_id, "related-to", threat_id
                                     )
                                     bundle_objects.append(rel)
                                     self.helper.log_debug(
-                                        f"New relationship appended for {target_id} - related-to - {threat['id']}"
+                                        f"New relationship appended for {target_id} - related-to - {threat_id}"
                                     )
                     bundle_objects = bundle_objects + bundle
                 # send stix2 bundle
