@@ -287,7 +287,7 @@ class ONYPHEConnector:
             return list(labels)
 
     def _generate_stix_external_reference(
-        self, type, value=None, x509_hashes=None, label_pivots=[]
+        self, type, value=None, x509_hashes=None, label_pivots=None
     ):
         self.helper.log_debug(f"Generating external reference for: {type}")
 
