@@ -1,28 +1,7 @@
-SUMMARYS = [
-    ("ip.dest", 20),
-    ("ip.organization", 20),
-    ("ip.asn", 20),
-    ("ip.country", 20),
-    ("cert.hostname", 20),
-    ("cert.domain", 20),
-    ("dns.hostname", 20),
-    ("tcp.dest", 20),
-    ("app.protocol", 20),
-    ("component.text", 20),
-]
+from dataclasses import dataclass
+from typing import Callable, Dict, List, Optional, Tuple
 
-SUMMARY_TITLES = {
-    "ip.dest": "Top 20 IP addresses identified",
-    "ip.organization": "Top 20 Organizations",
-    "ip.asn": "Top 20 Autonomous Systems",
-    "ip.country": "Top 20 Countries",
-    "cert.hostname": "Top 20 TLS Cert Hostnames",
-    "cert.domain": "Top 20 TLS Cert Domains",
-    "dns.hostname": "Top 20 DNS Hostnames",
-    "tcp.dest": "Top 20 TCP Ports",
-    "app.protocol": "Top 20 Protocols",
-    "component.text": "Top 20 Technologies",
-}
+# ─── Shared ───────────────────────────────────────────────────────────────────
 
 HASH_KEY_MAP = {
     "MD5": "md5",
@@ -48,7 +27,36 @@ PIVOT_MAP = dict(ANALYTICAL_PIVOTS)
 
 REVERSE_PIVOT_MAP = {v: k for k, v in PIVOT_MAP.items()}
 
-TYPE_HANDLERS = {
+
+# ─── Ctiscan ──────────────────────────────────────────────────────────────────
+
+_CTISCAN_SUMMARYS: List[Tuple[str, int]] = [
+    ("ip.dest", 20),
+    ("ip.organization", 20),
+    ("ip.asn", 20),
+    ("ip.country", 20),
+    ("cert.hostname", 20),
+    ("cert.domain", 20),
+    ("dns.hostname", 20),
+    ("tcp.dest", 20),
+    ("app.protocol", 20),
+    ("component.text", 20),
+]
+
+_CTISCAN_SUMMARY_TITLES: Dict[str, str] = {
+    "ip.dest": "Top 20 IP addresses identified",
+    "ip.organization": "Top 20 Organizations",
+    "ip.asn": "Top 20 Autonomous Systems",
+    "ip.country": "Top 20 Countries",
+    "cert.hostname": "Top 20 TLS Cert Hostnames",
+    "cert.domain": "Top 20 TLS Cert Domains",
+    "dns.hostname": "Top 20 DNS Hostnames",
+    "tcp.dest": "Top 20 TCP Ports",
+    "app.protocol": "Top 20 Protocols",
+    "component.text": "Top 20 Technologies",
+}
+
+_CTISCAN_TYPE_HANDLERS: Dict = {
     "ipv4-addr": (
         lambda v: f"https://search.onyphe.io/search?q=category%3Actiscan+ip.dest%3A{v}",
         "ONYPHE search for IP address {value}",
@@ -105,5 +113,275 @@ TYPE_HANDLERS = {
         lambda v: f"https://search.onyphe.io/search?q=category%3Actiscan+ip.asn%3A{v}",
         "ONYPHE search for ASN {value}",
         lambda v: str(v),
+    ),
+}
+
+# Paths in the ctiscan (layered) data model.
+# List values mean "check each path and merge all results".
+# cert_root: path to the sub-dict containing all cert fields.
+# cert_sha256: path to the cert SHA-256 fingerprint used as a dedup key.
+# ip_version: integer field returning 4 or 6.
+_CTISCAN_FIELD_MAP: Dict[str, Optional[object]] = {
+    "ip_dest": "ip.dest",
+    "ip_version": "ip.version",      # integer: 4 or 6
+    "ip_asn": "ip.asn",
+    "ip_org": "ip.organization",
+    "ip_country": "ip.country",
+    "dns_domain": ["dns.domain", "cert.domain"],
+    "dns_hostname": ["dns.hostname", "cert.hostname"],
+    "cert_root": "cert",             # cert data lives under ojson["cert"]
+    "cert_sha256": "cert.fingerprint.sha256",
+    "cve": "component.cve",
+}
+
+_CTISCAN_OQL_FILTERS: Dict[str, Optional[Callable]] = {
+    "ipv4-addr": lambda v: f"ip.dest:{v}",
+    "ipv6-addr": lambda v: f"ip.dest:{v}",
+    "hostname": lambda v: f"( ?dns.hostname:{v} ?cert.hostname:{v})",
+    # x509-certificate and text are handled with special logic in _process_message
+}
+
+_CTISCAN_STIX_GENERATORS: Dict[str, List[str]] = {
+    "ipv4-addr": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_hostname",
+        "_generate_stix_x509",
+        "_generate_stix_text",
+        "_upsert_stix_observable",
+    ],
+    "ipv6-addr": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_hostname",
+        "_generate_stix_x509",
+        "_generate_stix_text",
+        "_upsert_stix_observable",
+    ],
+    "hostname": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_ip",
+        "_generate_stix_text",
+        "_upsert_stix_observable",
+    ],
+    "x509-certificate": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_hostname",
+        "_generate_stix_ip",
+        "_generate_stix_text",
+        "_upsert_stix_observable",
+    ],
+    "text": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_hostname",
+        "_generate_stix_ip",
+        "_generate_stix_x509",
+        "_upsert_stix_observable",
+    ],
+    "indicator": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_ip",
+        "_generate_stix_hostname",
+        "_generate_stix_x509",
+    ],
+}
+
+
+# ─── Riskscan ─────────────────────────────────────────────────────────────────
+# Riskscan uses the old flat datascan data model, not the ctiscan layered model.
+# Key structural differences:
+#   - ip_version: boolean field "ipv6" (True = IPv6) instead of integer "ip.version"
+#   - hostname: single merged list containing reverse DNS, forward DNS, and
+#     FQDNs from cert subject.commonname / subject.altname — no separate split
+#   - cert data: at the top level of the document (not nested under "cert")
+#   - cert field names: "commonname"/"altname" vs "cn"/"an"; "serial" is a
+#     plain string vs {"hex": "..."}
+#   - fingerprint.md5/sha1/sha256 at top level (not under "cert")
+#   - cve: flat "cve" field vs "component.cve"
+
+_RISKSCAN_SUMMARYS: List[Tuple[str, int]] = [
+    ("ip", 20),
+    ("organization", 20),
+    ("country", 20),
+    ("hostname", 20),
+    ("port", 20),
+    ("protocol", 20),
+    ("cve", 20),
+    ("tag", 20),     # risk tags, e.g. risk::opendatabase — list field, values are flattened
+]
+
+_RISKSCAN_SUMMARY_TITLES: Dict[str, str] = {
+    "ip": "Top 20 IP addresses identified",
+    "organization": "Top 20 Organizations",
+    "country": "Top 20 Countries",
+    "hostname": "Top 20 Hostnames",
+    "port": "Top 20 Ports",
+    "protocol": "Top 20 Protocols",
+    "cve": "Top 20 CVEs",
+    "tag": "Top 20 Risk Tags",
+}
+
+_RISKSCAN_TYPE_HANDLERS: Dict = {
+    "ipv4-addr": (
+        lambda v: f"https://search.onyphe.io/search?q=category%3Ariskscan+ip%3A{v}",
+        "ONYPHE riskscan search for IP address {value}",
+        lambda v: v,
+    ),
+    "ipv6-addr": (
+        lambda v: f"https://search.onyphe.io/search?q=category%3Ariskscan+ip%3A{v}",
+        "ONYPHE riskscan search for IP address {value}",
+        lambda v: v,
+    ),
+    "hostname": (
+        lambda v: f"https://search.onyphe.io/search?q=category%3Ariskscan+hostname%3A{v}",
+        "ONYPHE riskscan search for hostname {value}",
+        lambda v: v,
+    ),
+    "domain-name": (
+        lambda v: f"https://search.onyphe.io/search?q=category%3Ariskscan+domain%3A{v}",
+        "ONYPHE riskscan search for domain {value}",
+        lambda v: v,
+    ),
+    "x509-certificate": (
+        lambda h: (
+            (
+                f"https://search.onyphe.io/search?q=category%3Ariskscan+"
+                f"fingerprint.{HASH_KEY_MAP[next(iter(h.keys())).upper()]}%3A{next(iter(h.values()))}"
+            )
+            if isinstance(h, dict) and h
+            else None
+        ),
+        "ONYPHE riskscan search for certificate fingerprint ({algo})",
+        lambda h: next(iter(h.values())) if isinstance(h, dict) and h else None,
+    ),
+    "organization": (
+        lambda v: f'https://search.onyphe.io/search?q=category%3Ariskscan+organization%3A"{v}"',
+        "ONYPHE riskscan search for organization {value}",
+        lambda v: v,
+    ),
+    "asn": (
+        lambda v: f"https://search.onyphe.io/search?q=category%3Ariskscan+asn%3A{v}",
+        "ONYPHE riskscan search for ASN {value}",
+        lambda v: str(v),
+    ),
+}
+
+# Paths in the riskscan (flat datascan) data model.
+# cert_root: None means cert fields live at the document top level (not nested).
+# cert_sha256: path to the cert SHA-256 fingerprint used as a dedup key.
+# ip_version: "ipv6" is a boolean (True = IPv6, False/absent = IPv4).
+# dns_hostname: "hostname" alone — this field already merges reverse DNS,
+#   forward DNS, and cert FQDNs; no need to query "reverse" separately.
+_RISKSCAN_FIELD_MAP: Dict[str, Optional[object]] = {
+    "ip_dest": "ip",
+    "ip_version": "ipv6",            # boolean: True = IPv6, False/absent = IPv4
+    "ip_asn": "asn",
+    "ip_org": "organization",
+    "ip_country": "country",
+    "dns_domain": ["domain"],
+    "dns_hostname": ["hostname"],
+    "cert_root": None,               # cert fields are at the document top level
+    "cert_sha256": "fingerprint.sha256",
+    "cve": "cve",
+}
+
+_RISKSCAN_OQL_FILTERS: Dict[str, Optional[Callable]] = {
+    "ipv4-addr": lambda v: f"ip:{v}",
+    "ipv6-addr": lambda v: f"ip:{v}",
+    "hostname": lambda v: f"hostname:{v}",
+    # x509-certificate is handled with special logic in _process_message
+}
+
+_RISKSCAN_STIX_GENERATORS: Dict[str, List[str]] = {
+    "ipv4-addr": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_hostname",
+        "_generate_stix_x509",
+        "_generate_stix_vulnerability",
+        "_upsert_stix_observable",
+    ],
+    "ipv6-addr": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_hostname",
+        "_generate_stix_x509",
+        "_generate_stix_vulnerability",
+        "_upsert_stix_observable",
+    ],
+    "hostname": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_ip",
+        "_generate_stix_x509",
+        "_generate_stix_vulnerability",
+        "_upsert_stix_observable",
+    ],
+    "x509-certificate": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_hostname",
+        "_generate_stix_ip",
+        "_generate_stix_vulnerability",
+        "_upsert_stix_observable",
+    ],
+    "indicator": [
+        "_generate_stix_identity",
+        "_generate_stix_domain",
+        "_generate_stix_asn",
+        "_generate_stix_ip",
+        "_generate_stix_hostname",
+        "_generate_stix_x509",
+        "_generate_stix_vulnerability",
+    ],
+}
+
+
+# ─── Profile registry ─────────────────────────────────────────────────────────
+
+
+@dataclass
+class CategoryProfile:
+    category: str
+    summarys: List[Tuple[str, int]]
+    summary_titles: Dict[str, str]
+    type_handlers: Dict
+    field_map: Dict[str, Optional[object]]
+    oql_filters: Dict[str, Optional[Callable]]
+    stix_generators: Dict[str, List[str]]
+
+
+CATEGORY_PROFILES: Dict[str, CategoryProfile] = {
+    "ctiscan": CategoryProfile(
+        category="ctiscan",
+        summarys=_CTISCAN_SUMMARYS,
+        summary_titles=_CTISCAN_SUMMARY_TITLES,
+        type_handlers=_CTISCAN_TYPE_HANDLERS,
+        field_map=_CTISCAN_FIELD_MAP,
+        oql_filters=_CTISCAN_OQL_FILTERS,
+        stix_generators=_CTISCAN_STIX_GENERATORS,
+    ),
+    "riskscan": CategoryProfile(
+        category="riskscan",
+        summarys=_RISKSCAN_SUMMARYS,
+        summary_titles=_RISKSCAN_SUMMARY_TITLES,
+        type_handlers=_RISKSCAN_TYPE_HANDLERS,
+        field_map=_RISKSCAN_FIELD_MAP,
+        oql_filters=_RISKSCAN_OQL_FILTERS,
+        stix_generators=_RISKSCAN_STIX_GENERATORS,
     ),
 }

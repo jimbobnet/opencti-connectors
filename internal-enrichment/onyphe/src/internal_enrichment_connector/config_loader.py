@@ -115,3 +115,10 @@ class ConfigConnector:
             default=10,
             isNumber=True,
         )
+
+        self.category = get_config_variable(
+            "ONYPHE_CATEGORY",
+            ["onyphe", "category"],
+            self.load,
+            default="ctiscan",
+        )
