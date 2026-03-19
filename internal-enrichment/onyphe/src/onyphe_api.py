@@ -74,11 +74,39 @@ class Onyphe:
             url_path = f"summary/ip/{data}"
         return self._request(path=url_path)
 
-    def search_oql(self, oql: str, size: int = None):
-        """Return data from specified category using Search API and the provided data as the OQL filter."""
+    def search_oql(self, oql: str, size: int = None, page: int = None):
+        """Return a single page of results from the Search API for the provided OQL query."""
         url_path = f"search/?q={oql}"
-        query_params = {"size": size} if size is not None else None
-        return self._request(path=url_path, query_params=query_params)
+        query_params = {}
+        if size is not None:
+            query_params["size"] = size
+        if page is not None:
+            query_params["page"] = page
+        return self._request(path=url_path, query_params=query_params if query_params else None)
+
+    def search_oql_paginated(self, oql: str, limit: int):
+        """Fetch up to limit results, paginating in batches of 100 (API max page size).
+        The API caps at 100 pages (10,000 results maximum).
+        Returns a dict with 'total' (from the API) and 'results' (accumulated list).
+        """
+        PAGE_SIZE = 100
+        MAX_PAGES = 100
+
+        first_response = self.search_oql(oql, size=min(PAGE_SIZE, limit), page=1)
+        total = first_response.get("total", 0)
+        results = first_response.get("results", [])
+
+        page = 2
+        while len(results) < min(limit, total) and page <= MAX_PAGES:
+            remaining = min(limit, total) - len(results)
+            page_response = self.search_oql(oql, size=min(PAGE_SIZE, remaining), page=page)
+            page_results = page_response.get("results", [])
+            if not page_results:
+                break
+            results.extend(page_results)
+            page += 1
+
+        return {"total": total, "results": results}
 
 
 class APIError(Exception):
