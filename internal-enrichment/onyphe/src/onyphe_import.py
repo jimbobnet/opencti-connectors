@@ -711,11 +711,11 @@ class ONYPHEConnector:
             self._generate_stix_hostname(data)
             self._generate_stix_x509(data)
 
+        if only_objects:
+            return self.stix_objects
         uniq_bundles_objects = list(
             {obj["id"]: obj for obj in self.stix_objects}.values()
         )
-        if only_objects:
-            return uniq_bundles_objects
         return self.helper.stix2_create_bundle(uniq_bundles_objects)
 
     def _process_message(self, data: Dict):
