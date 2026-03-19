@@ -138,6 +138,7 @@ _CTISCAN_OQL_FILTERS: Dict[str, Optional[Callable]] = {
     "ipv4-addr": lambda v: f"ip.dest:{v}",
     "ipv6-addr": lambda v: f"ip.dest:{v}",
     "hostname": lambda v: f"( ?dns.hostname:{v} ?cert.hostname:{v})",
+    "domain-name": lambda v: f"( ?dns.domain:{v} ?cert.domain:{v} ?extract.domain:{v})",
     # x509-certificate and text are handled with special logic in _process_message
 }
 
@@ -165,6 +166,15 @@ _CTISCAN_STIX_GENERATORS: Dict[str, List[str]] = {
         "_generate_stix_domain",
         "_generate_stix_asn",
         "_generate_stix_ip",
+        "_generate_stix_text",
+        "_upsert_stix_observable",
+    ],
+    "domain-name": [
+        "_generate_stix_identity",
+        "_generate_stix_asn",
+        "_generate_stix_hostname",
+        "_generate_stix_ip",
+        "_generate_stix_x509",
         "_generate_stix_text",
         "_upsert_stix_observable",
     ],
@@ -299,6 +309,7 @@ _RISKSCAN_OQL_FILTERS: Dict[str, Optional[Callable]] = {
     "ipv4-addr": lambda v: f"ip:{v}",
     "ipv6-addr": lambda v: f"ip:{v}",
     "hostname": lambda v: f"hostname:{v}",
+    "domain-name": lambda v: f"domain:{v}",
     # x509-certificate is handled with special logic in _process_message
 }
 
@@ -325,6 +336,15 @@ _RISKSCAN_STIX_GENERATORS: Dict[str, List[str]] = {
         "_generate_stix_identity",
         "_generate_stix_domain",
         "_generate_stix_asn",
+        "_generate_stix_ip",
+        "_generate_stix_x509",
+        "_generate_stix_vulnerability",
+        "_upsert_stix_observable",
+    ],
+    "domain-name": [
+        "_generate_stix_identity",
+        "_generate_stix_asn",
+        "_generate_stix_hostname",
         "_generate_stix_ip",
         "_generate_stix_x509",
         "_generate_stix_vulnerability",

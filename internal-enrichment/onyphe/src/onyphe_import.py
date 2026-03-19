@@ -747,6 +747,7 @@ class ONYPHEConnector:
         type_class_map = {
             "ipv4-addr": stix2.IPv4Address,
             "ipv6-addr": stix2.IPv6Address,
+            "domain-name": stix2.DomainName,
             "hostname": CustomObservableHostname,
             "text": CustomObservableText,
         }
