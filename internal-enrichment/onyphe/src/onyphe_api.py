@@ -64,16 +64,6 @@ class Onyphe:
 
         return response_data
 
-    def summary(self, data: str, datatype: str):
-        """Return a summary of all information we have for the given IPv{4,6} address."""
-        if datatype == "domain":
-            url_path = f"summary/domain/{data}"
-        elif datatype == "fqdn":
-            url_path = f"summary/hostname/{data}"
-        else:
-            url_path = f"summary/ip/{data}"
-        return self._request(path=url_path)
-
     def search_oql(self, oql: str, size: int = None, page: int = None):
         """Return a single page of results from the Search API for the provided OQL query."""
         url_path = f"search/?q={oql}"
