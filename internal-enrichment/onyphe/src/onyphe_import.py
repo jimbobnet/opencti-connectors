@@ -795,11 +795,11 @@ class ONYPHEConnector:
                 # Get ONYPHE ctiscan API Response
                 oql = f"category:{self.onyphe_category} {ctifilter} -since:{self.config.time_since}"
 
-                count = self.onyphe_client.count(oql)
-                if count > self.config.pivot_threshold:
+                response = self.onyphe_client.search_oql(
+                    oql, size=self.config.pivot_threshold
+                )
+                if response.get("total", 0) > self.config.pivot_threshold:
                     return "Sent 0 bundles for import. Results over pivot threshold."
-
-                response = self.onyphe_client.search_oql(oql)
 
                 # Generate a stix bundle
                 bundle = self._generate_stix_bundle(
