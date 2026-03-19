@@ -241,7 +241,7 @@ class ONYPHEConnector:
                 else:
                     service_data = (raw_text.strip())[0:2048]
 
-                if ojson["app"]["tls"]:
+                if ojson["app"]["tls"] == "true":
                     protocol_string = f"{str(ojson['app']['transport'])}/{str(ojson['app']['protocol'])}/tls"
                 else:
                     protocol_string = f"{str(ojson['app']['transport'])}/{str(ojson['app']['protocol'])}"
