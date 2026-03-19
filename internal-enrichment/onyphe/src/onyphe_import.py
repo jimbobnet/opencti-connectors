@@ -209,7 +209,7 @@ class ONYPHEConnector:
         # parse json documents
         count = str(len(response))
 
-        services_desc = "Services:\n"
+        service_parts = ["Services:\n"]
         for ojson in response:
             raw_text = self._get_nested_values(ojson, "app.data.text")
             if raw_text:
@@ -226,16 +226,17 @@ class ONYPHEConnector:
                     protocol_string = f"{str(ojson['app']['transport'])}/{str(ojson['app']['protocol'])}"
 
                 if isinstance(ojson["scanner"], dict):
-                    services_desc = (
-                        services_desc
-                        + f"\n**{str(ojson['ip']['dest'])}:{str(ojson[str(ojson['app']['transport'])]['dest'])} "
-                        + f"{protocol_string} seen from {str(ojson['scanner']['country'])} at {str(ojson['@timestamp'])} :**\n"
-                        + f"```\n{service_data}\n```"
+                    service_parts.append(
+                        f"\n**{str(ojson['ip']['dest'])}:{str(ojson[str(ojson['app']['transport'])]['dest'])} "
+                        f"{protocol_string} seen from {str(ojson['scanner']['country'])} at {str(ojson['@timestamp'])} :**\n"
+                        f"```\n{service_data}\n```"
                     )
 
-                services_desc = services_desc + "\n------------------"
+                service_parts.append("\n------------------")
             else:
                 continue  # Skip invalid or incomplete entries
+
+        services_desc = "".join(service_parts)
 
         if response:
             if isinstance(response, list):
