@@ -326,7 +326,9 @@ class ONYPHEConnector:
             elif not isinstance(cves, list):
                 cves = []
 
-            tls_suffix = "/tls" if tls else ""
+            # The API serialises boolean fields as strings; guard against
+            # "false" being truthy in Python.
+            tls_suffix = "/tls" if tls in (True, "true") else ""
             service_parts.append(
                 f"\n**{ip}:{port} {transport}/{protocol}{tls_suffix} at {timestamp}:**\n"
                 f"- Risks: {', '.join(risk_tags) if risk_tags else 'none'}\n"
