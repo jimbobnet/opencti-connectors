@@ -11,16 +11,53 @@ HASH_KEY_MAP = {
 }
 
 ANALYTICAL_PIVOTS = [
+    # HTTP header hash (HHHash)
     ("hhhash.fingerprint.sha256", "hhhash-sha256"),
     ("hhhash.fingerprint.md5", "hhhash-md5"),
-    ("ja4t.fingerprint.sha256", "ja4t-sha256"),
+    # JA4T TCP fingerprint — only md5 exists in the data model
     ("ja4t.fingerprint.md5", "ja4t-md5"),
+    # JA3S / JA4S TLS fingerprints — only md5 exists in the data model
     ("ja3s.fingerprint.md5", "ja3s-md5"),
     ("ja4s.fingerprint.md5", "ja4s-md5"),
+    # HASSH SSH client fingerprint — only md5 exists in the data model
     ("hassh.fingerprint.md5", "hassh-md5"),
-    ("favicon.data.md5", "favicon-md5"),
+    # Favicon
     ("favicon.data.sha256", "favicon-sha256"),
+    ("favicon.data.md5", "favicon-md5"),
     ("favicon.data.mmh3", "favicon-mmh3"),
+    # TCP fingerprint — only md5 exists in the data model
+    ("tcp.fingerprint.md5", "tcp-fingerprint-md5"),
+    # Raw application-layer payload hash
+    ("app.data.sha256", "app-data-sha256"),
+    ("app.data.md5", "app-data-md5"),
+    ("app.data.mmh3", "app-data-mmh3"),
+    # HTTP header block hash
+    ("http.header.data.sha256", "http-header-data-sha256"),
+    ("http.header.data.md5", "http-header-data-md5"),
+    ("http.header.data.mmh3", "http-header-data-mmh3"),
+    # HTTP body hash
+    ("http.body.data.sha256", "http-body-data-sha256"),
+    ("http.body.data.md5", "http-body-data-md5"),
+    ("http.body.data.mmh3", "http-body-data-mmh3"),
+    # SSH host-key fingerprint
+    ("ssh.fingerprint.sha256", "ssh-fingerprint-sha256"),
+    ("ssh.fingerprint.md5", "ssh-fingerprint-md5"),
+]
+
+# Default active pivot labels: prefer sha256; fall back to md5 for pivot families
+# where sha256 is absent from the ctiscan data model.
+DEFAULT_PIVOT_LABELS: List[str] = [
+    "hhhash-sha256",
+    "ja4t-md5",           # no sha256 in data model
+    "ja3s-md5",           # no sha256 in data model
+    "ja4s-md5",           # no sha256 in data model
+    "hassh-md5",          # no sha256 in data model
+    "favicon-sha256",
+    "tcp-fingerprint-md5",  # no sha256 in data model
+    "app-data-sha256",
+    "http-header-data-sha256",
+    "http-body-data-sha256",
+    "ssh-fingerprint-sha256",
 ]
 
 PIVOT_MAP = dict(ANALYTICAL_PIVOTS)

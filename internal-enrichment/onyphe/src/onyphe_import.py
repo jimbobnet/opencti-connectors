@@ -7,6 +7,7 @@ from onyphe_api import APIError, Onyphe
 from onyphe_references import (
     ANALYTICAL_PIVOTS,
     CATEGORY_PROFILES,
+    DEFAULT_PIVOT_LABELS,
     GENERATOR_TYPE_MAP,
     HASH_KEY_MAP,
     PIVOT_MAP,
@@ -58,6 +59,13 @@ class ONYPHEConnector:
             self.profile = self._apply_enrichment_type_filter(
                 profile, config.enrichment_types
             )
+
+        selected_labels = config.text_fingerprints if config.text_fingerprints else DEFAULT_PIVOT_LABELS
+        label_set = set(selected_labels)
+        self.active_pivots = [(f, l) for f, l in ANALYTICAL_PIVOTS if l in label_set]
+        self.helper.log_info(
+            f"Active fingerprint pivots: {[l for _, l in self.active_pivots]}"
+        )
 
         # ONYPHE Identity
         self.onyphe_identity = self.helper.api.identity.create(
@@ -672,7 +680,7 @@ class ONYPHEConnector:
 
         text_dict = {}
         for ojson in response:
-            for pivot, type in ANALYTICAL_PIVOTS:
+            for pivot, type in self.active_pivots:
                 value = self._get_nested_values(ojson, pivot)
                 if value:
                     text_dict[value] = type

@@ -131,6 +131,25 @@ class ConfigConnector:
             isNumber=True,
         )
 
+        # CSV list of analytical pivot labels controlling which ONYPHE fingerprint
+        # fields are turned into Text observables during enrichment.
+        # An empty value means "use the default set" (sha256-preferred per family
+        # — see DEFAULT_PIVOT_LABELS in onyphe_references.py).
+        # Valid labels are the short names in ANALYTICAL_PIVOTS, e.g.:
+        #   hhhash-sha256, favicon-sha256, ssh-fingerprint-sha256, app-data-sha256 …
+        text_fingerprints_raw = get_config_variable(
+            "ONYPHE_TEXT_FINGERPRINTS",
+            ["onyphe", "text_fingerprints"],
+            self.load,
+            default="",
+        )
+        if text_fingerprints_raw:
+            self.text_fingerprints = [
+                t.strip() for t in text_fingerprints_raw.split(",") if t.strip()
+            ]
+        else:
+            self.text_fingerprints = []
+
         # CSV list of OpenCTI observable types (and "Vulnerability") to create
         # during enrichment.  An empty value means "all types" (default behaviour).
         # Valid values: Domain-Name, Hostname, IPv4-Address, IPv6-Address,

@@ -28,6 +28,7 @@
   - [Pivot Threshold](#pivot-threshold)
   - [Indicator Max Results](#indicator-max-results)
   - [Enrichment Types](#enrichment-types)
+  - [Text Fingerprints](#text-fingerprints)
   - [Auto Enrichment](#auto-enrichment)
 - [Debugging](#debugging)
 - [Additional Information](#additional-information)
@@ -94,6 +95,7 @@ The connector supports multiple [ONYPHE data categories](https://search.onyphe.i
 | `onyphe_indicator_max_results` | `ONYPHE_INDICATOR_MAX_RESULTS` | No | Maximum results to fetch when enriching an indicator. If the first page reveals more total results than this, the query is considered too imprecise and no results are imported (default: `1000`) |
 | `onyphe_pattern_type` | `ONYPHE_PATTERN_TYPE` | No | Vocabulary entry for ONYPHE indicator pattern type (default: `onyphe`) |
 | `onyphe_enrichment_types` | `ONYPHE_ENRICHMENT_TYPES` | No | Comma-separated list of OpenCTI object types to create during enrichment. Leave empty to create all types (default). See [Enrichment Types](#enrichment-types) for valid values. |
+| `onyphe_text_fingerprints` | `ONYPHE_TEXT_FINGERPRINTS` | No | Comma-separated list of fingerprint pivot labels controlling which ONYPHE hash fields are created as Text observables. Leave empty to use the default sha256-preferred set. See [Text Fingerprints](#text-fingerprints) for valid values. |
 
 #### Connector scope by category
 
@@ -272,7 +274,7 @@ The connector supports the following observable types as enrichment inputs. The 
 | Organization (Identity) | Yes | Yes |
 | X509-Certificate | Yes | Yes |
 | Vulnerability | — | Yes |
-| Text (fingerprint pivots) | Yes | — |
+| Text (fingerprint pivots) | Yes (configurable via `ONYPHE_TEXT_FINGERPRINTS`) | — |
 | Note (indicator summary) | Yes | Yes |
 | Labels | Yes | Yes |
 | External Reference | Yes | Yes |
@@ -343,6 +345,46 @@ Valid values:
 ```yaml
 - ONYPHE_CATEGORY=riskscan
 - ONYPHE_ENRICHMENT_TYPES=IPv4-Address,IPv6-Address,Vulnerability
+```
+
+### Text Fingerprints
+
+`ONYPHE_TEXT_FINGERPRINTS` controls which ONYPHE hash fields are extracted from enrichment results and stored as Text observables in OpenCTI. Each field is identified by a short label (the second column in the table below).
+
+By default, when the parameter is empty, the connector uses the **sha256-preferred set**: one pivot per fingerprint family, choosing sha256 where the data model supports it and falling back to md5 otherwise. This avoids duplicate Text objects for the same content under different hash algorithms.
+
+To use a different selection, set the parameter to a comma-separated list of labels.
+
+#### All available pivot labels
+
+| Label | ONYPHE field | Notes | In default set |
+|-------|-------------|-------|:--------------:|
+| `hhhash-sha256` | `hhhash.fingerprint.sha256` | HTTP header hash | Yes |
+| `hhhash-md5` | `hhhash.fingerprint.md5` | HTTP header hash | |
+| `ja4t-md5` | `ja4t.fingerprint.md5` | TCP fingerprint (JA4T) — no sha256 in data model | Yes |
+| `ja3s-md5` | `ja3s.fingerprint.md5` | TLS server fingerprint (JA3S) — no sha256 in data model | Yes |
+| `ja4s-md5` | `ja4s.fingerprint.md5` | TLS server fingerprint (JA4S) — no sha256 in data model | Yes |
+| `hassh-md5` | `hassh.fingerprint.md5` | SSH client fingerprint (HASSH) — no sha256 in data model | Yes |
+| `favicon-sha256` | `favicon.data.sha256` | Favicon hash | Yes |
+| `favicon-md5` | `favicon.data.md5` | Favicon hash | |
+| `favicon-mmh3` | `favicon.data.mmh3` | Favicon hash (Shodan-compatible) | |
+| `tcp-fingerprint-md5` | `tcp.fingerprint.md5` | Raw TCP fingerprint — no sha256 in data model | Yes |
+| `app-data-sha256` | `app.data.sha256` | Application-layer payload hash | Yes |
+| `app-data-md5` | `app.data.md5` | Application-layer payload hash | |
+| `app-data-mmh3` | `app.data.mmh3` | Application-layer payload hash | |
+| `http-header-data-sha256` | `http.header.data.sha256` | HTTP header block hash | Yes |
+| `http-header-data-md5` | `http.header.data.md5` | HTTP header block hash | |
+| `http-header-data-mmh3` | `http.header.data.mmh3` | HTTP header block hash | |
+| `http-body-data-sha256` | `http.body.data.sha256` | HTTP body hash | Yes |
+| `http-body-data-md5` | `http.body.data.md5` | HTTP body hash | |
+| `http-body-data-mmh3` | `http.body.data.mmh3` | HTTP body hash | |
+| `ssh-fingerprint-sha256` | `ssh.fingerprint.sha256` | SSH host-key fingerprint | Yes |
+| `ssh-fingerprint-md5` | `ssh.fingerprint.md5` | SSH host-key fingerprint | |
+
+**Example** — only favicon and SSH fingerprints, using all available hash variants:
+
+```yaml
+- ONYPHE_TEXT_FINGERPRINTS=favicon-sha256,favicon-md5,favicon-mmh3,ssh-fingerprint-sha256,ssh-fingerprint-md5
 ```
 
 ### Auto Enrichment
