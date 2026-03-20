@@ -126,7 +126,6 @@ _CTISCAN_FIELD_MAP: Dict[str, Optional[object]] = {
     "ip_version": "ip.version",      # integer: 4 or 6
     "ip_asn": "ip.asn",
     "ip_org": "ip.organization",
-    "ip_country": "ip.country",
     "dns_domain": ["dns.domain", "cert.domain"],
     "dns_hostname": ["dns.hostname", "cert.hostname"],
     # Per-field relationship type for hostnames.
@@ -301,7 +300,6 @@ _RISKSCAN_FIELD_MAP: Dict[str, Optional[object]] = {
     "ip_version": "ipv6",            # boolean: True = IPv6, False/absent = IPv4
     "ip_asn": "asn",
     "ip_org": "organization",
-    "ip_country": "country",
     "dns_domain": ["domain"],
     "dns_hostname": ["hostname"],
     "cert_root": None,               # cert fields are at the document top level

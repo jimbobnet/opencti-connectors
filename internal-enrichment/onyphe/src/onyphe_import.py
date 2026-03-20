@@ -75,7 +75,6 @@ class ONYPHEConnector:
     def _pattern_type_create(self, pattern_type="onyphe"):
         VOCAB_KEY = "pattern_type_ov"
         try:
-            self.vocabulary_list = []
             existing_vocabulary = self.helper.api.vocabulary.list(
                 **{
                     "filters": {
@@ -573,11 +572,11 @@ class ONYPHEConnector:
             )
 
     def _generate_stix_hostname_domain_relationships(self, response):
-        """Create hostname -belongs-to-> domain-name relationships.
+        """Create hostname -related-to-> domain-name relationships.
 
         ONYPHE pre-extracts domain names (handling public suffix lists), so for
         every hostname in the results there will be a corresponding domain entry.
-        We match by suffix: if a hostname ends with '.<domain>' it belongs to
+        We match by suffix: if a hostname ends with '.<domain>' it is related to
         that domain. No FQDN parsing is done here.
         """
         self.helper.log_debug(
@@ -614,11 +613,11 @@ class ONYPHEConnector:
                     hostname_obj = CustomObservableHostname(value=hostname)
                     domain_obj = stix2.DomainName(value=domain)
                     rel = self._generate_stix_relationship(
-                        hostname_obj["id"], "belongs-to", domain_obj["id"]
+                        hostname_obj["id"], "related-to", domain_obj["id"]
                     )
                     self.stix_objects.append(rel)
                     self.helper.log_debug(
-                        f"New relationship appended for {hostname} - belongs-to - {domain}"
+                        f"New relationship appended for {hostname} - related-to - {domain}"
                     )
 
     def _generate_stix_text(self, response):
