@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
 from typing import Callable, Dict, List, Optional, Tuple
 
 # ─── Shared ───────────────────────────────────────────────────────────────────
@@ -219,27 +219,21 @@ _CTISCAN_STIX_GENERATORS: Dict[str, List[str]] = {
 #   - fingerprint.md5/sha1/sha256 at top level (not under "cert")
 #   - cve: flat "cve" field vs "component.cve"
 
+# For riskscan the summary style is "findings_table", not frequency counts.
+# This list is used only to build the -fields: OQL parameter so the API returns
+# exactly the fields needed to render the findings table.
 _RISKSCAN_SUMMARYS: List[Tuple[str, int]] = [
-    ("ip", 20),
-    ("organization", 20),
-    ("country", 20),
-    ("hostname", 20),
-    ("port", 20),
-    ("protocol", 20),
-    ("cve", 20),
-    ("tag", 20),     # risk tags, e.g. risk::opendatabase — list field, values are flattened
+    ("tag", 0),          # risk tags, e.g. risk::opendatabase
+    ("cve", 0),
+    ("ip", 0),
+    ("port", 0),
+    ("transport", 0),
+    ("protocol", 0),
+    ("tls", 0),
+    ("hostname", 0),
+    ("organization", 0),
 ]
 
-_RISKSCAN_SUMMARY_TITLES: Dict[str, str] = {
-    "ip": "Top 20 IP addresses identified",
-    "organization": "Top 20 Organizations",
-    "country": "Top 20 Countries",
-    "hostname": "Top 20 Hostnames",
-    "port": "Top 20 Ports",
-    "protocol": "Top 20 Protocols",
-    "cve": "Top 20 CVEs",
-    "tag": "Top 20 Risk Tags",
-}
 
 _RISKSCAN_TYPE_HANDLERS: Dict = {
     "ipv4-addr": (
@@ -383,6 +377,9 @@ class CategoryProfile:
     field_map: Dict[str, Optional[object]]
     oql_filters: Dict[str, Optional[Callable]]
     stix_generators: Dict[str, List[str]]
+    summary_style: str = dc_field(default="frequency")
+    # "frequency": top-N value counts per field (ctiscan default)
+    # "findings_table": structured | Risk/CVE | IP:Port | Service | Hostname | Org | table
 
 
 CATEGORY_PROFILES: Dict[str, CategoryProfile] = {
@@ -398,10 +395,11 @@ CATEGORY_PROFILES: Dict[str, CategoryProfile] = {
     "riskscan": CategoryProfile(
         category="riskscan",
         summarys=_RISKSCAN_SUMMARYS,
-        summary_titles=_RISKSCAN_SUMMARY_TITLES,
+        summary_titles={},
         type_handlers=_RISKSCAN_TYPE_HANDLERS,
         field_map=_RISKSCAN_FIELD_MAP,
         oql_filters=_RISKSCAN_OQL_FILTERS,
         stix_generators=_RISKSCAN_STIX_GENERATORS,
+        summary_style="findings_table",
     ),
 }

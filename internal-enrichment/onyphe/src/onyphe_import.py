@@ -663,6 +663,104 @@ class ONYPHEConnector:
             processor_func=x509_processor,
         )
 
+    def _build_frequency_summary_note(self, results):
+        """Build the classic top-N frequency table note (ctiscan style)."""
+        summarys = {summary: {} for summary, _ in self.profile.summarys}
+        for result in results:
+            for summary, _ in self.profile.summarys:
+                values = self._get_nested_values(result, summary)
+                if isinstance(values, list):
+                    for val in values:
+                        if val is not None:
+                            summarys[summary][val] = summarys[summary].get(val, 0) + 1
+                elif values is not None:
+                    summarys[summary][values] = summarys[summary].get(values, 0) + 1
+
+        top = {}
+        for summary, limit in self.profile.summarys:
+            sorted_items = sorted(
+                summarys[summary].items(), key=lambda item: item[1], reverse=True
+            )[:limit]
+            top[summary] = dict(sorted_items)
+
+        note_title = f"ONYPHE {self.onyphe_category.title()} Summary Information"
+        note_content = "### Global\n"
+        note_content += "| Value | Count |\n|------|-------|\n"
+        note_content += "| Total Results |" + str(len(results)) + " |\n"
+        for summary, _ in self.profile.summarys:
+            note_content += "### " + self.profile.summary_titles[summary] + "\n\n"
+            note_content += "| Value | Count |\n|------|-------|\n"
+            for value, count in top[summary].items():
+                note_content += "| " + str(value) + " |" + str(count) + " |\n"
+            note_content += "\n"
+        return note_title, note_content
+
+    def _build_findings_table_note(self, results):
+        """Build a structured findings table note (riskscan style).
+
+        Columns: Risk/CVE | IP:Port | Service | Hostname | Organization
+        One row per (finding, ip, port) combination; risk:: tags and CVEs
+        are treated as findings. Only tags prefixed with 'risk::' are included.
+        """
+        fm = self.profile.field_map
+        ip_dest_field = fm["ip_dest"]
+        ip_org_field = fm["ip_org"]
+        cve_field = fm.get("cve")
+        hostname_fields = fm["dns_hostname"]
+
+        rows = []
+        for ojson in results:
+            ip = self._get_nested_values(ojson, ip_dest_field) or ""
+            port = self._get_nested_values(ojson, "port") or ""
+            transport = self._get_nested_values(ojson, "transport") or ""
+            protocol = self._get_nested_values(ojson, "protocol") or ""
+            tls_raw = self._get_nested_values(ojson, "tls")
+            tls_str = "/tls" if tls_raw in (True, "true") else ""
+            service = f"{transport}/{protocol}{tls_str}" if (transport or protocol) else ""
+
+            hostnames = []
+            for field_path in hostname_fields:
+                values = self._get_nested_values(ojson, field_path)
+                if values:
+                    if isinstance(values, list):
+                        hostnames.extend(str(v) for v in values if v)
+                    else:
+                        hostnames.append(str(values))
+            hostname_str = "<br>".join(hostnames) if hostnames else ""
+
+            org = self._get_nested_values(ojson, ip_org_field) or ""
+            ip_port = f"{ip}:{port}" if port else str(ip)
+
+            findings = []
+            tags = self._get_nested_values(ojson, "tag") or []
+            if isinstance(tags, str):
+                tags = [tags]
+            findings.extend(t for t in tags if isinstance(t, str) and t.startswith("risk::"))
+            if cve_field:
+                cves = self._get_nested_values(ojson, cve_field) or []
+                if isinstance(cves, str):
+                    cves = [cves]
+                findings.extend(str(c) for c in cves if c)
+
+            for finding in findings:
+                rows.append((finding, ip_port, service, hostname_str, org))
+
+        # Deduplicate while preserving order
+        seen = set()
+        unique_rows = []
+        for row in rows:
+            if row not in seen:
+                seen.add(row)
+                unique_rows.append(row)
+
+        note_title = f"ONYPHE {self.onyphe_category.title()} Findings"
+        note_content = f"| Total Results | {len(results)} |\n|------|-------|\n\n"
+        note_content += "| Risk / CVE | IP:Port | Service | Hostname | Organization |\n"
+        note_content += "|------------|---------|---------|----------|---------------|\n"
+        for finding, ip_port, service, hostname, org in unique_rows:
+            note_content += f"| {finding} | {ip_port} | {service} | {hostname} | {org} |\n"
+        return note_title, note_content
+
     def _generate_stix_vulnerability(self, response):
         self.helper.log_debug(
             f"Generate vulnerability objects for : {self.stix_entity.get('id')}"
@@ -1042,42 +1140,10 @@ class ONYPHEConnector:
                 number_processed = response["total"]
 
                 self.helper.log_debug("Building summary")
-                summarys = {summary: {} for summary, _ in self.profile.summarys}
-
-                for result in results:
-                    for summary, _ in self.profile.summarys:
-                        values = self._get_nested_values(result, summary)
-
-                        if isinstance(values, list):
-                            for val in values:
-                                if val is not None:
-                                    summarys[summary][val] = (
-                                        summarys[summary].get(val, 0) + 1
-                                    )
-                        elif values is not None:
-                            summarys[summary][values] = (
-                                summarys[summary].get(values, 0) + 1
-                            )
-
-                top = {}
-                for summary, limit in self.profile.summarys:
-                    sorted_items = sorted(
-                        summarys[summary].items(),
-                        key=lambda item: item[1],
-                        reverse=True,
-                    )[:limit]
-                    top[summary] = dict(sorted_items)
-
-                note_title = f"ONYPHE {self.onyphe_category.title()} Summary Information"
-                note_content = "### Global\n"
-                note_content += "| Value | Count |\n|------|-------|\n"
-                note_content += "| Total Results |" + str(len(results)) + " |\n"
-                for summary, limit in self.profile.summarys:
-                    note_content += "### " + self.profile.summary_titles[summary] + "\n\n"
-                    note_content += "| Value | Count |\n|------|-------|\n"
-                    for value, count in top[summary].items():
-                        note_content += "| " + str(value) + " |" + str(count) + " |\n"
-                    note_content += "\n"
+                if self.profile.summary_style == "findings_table":
+                    note_title, note_content = self._build_findings_table_note(results)
+                else:
+                    note_title, note_content = self._build_frequency_summary_note(results)
 
                 created = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
                 note = stix2.Note(
