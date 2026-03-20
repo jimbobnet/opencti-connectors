@@ -671,16 +671,38 @@ class ONYPHEConnector:
         if not cve_field:
             return
 
-        cves = set()
+        is_indicator = self.stix_entity["type"] == "indicator"
+        ip_dest_field = self.profile.field_map.get("ip_dest")
+        ip_version_field = self.profile.field_map.get("ip_version")
+
+        # Map CVE -> set of IPs (for indicator path) or collect unique CVEs (observable path)
+        cve_ips: Dict[str, set] = {}
         for ojson in response:
             values = self._get_nested_values(ojson, cve_field)
-            if values:
-                if isinstance(values, list):
-                    cves.update(str(v) for v in values if v)
-                else:
-                    cves.add(str(values))
+            if not values:
+                continue
+            cve_ids = [str(v) for v in values if v] if isinstance(values, list) else [str(values)]
 
-        for cve_id in cves:
+            ip = None
+            if is_indicator and ip_dest_field:
+                ip = self._get_nested_values(ojson, ip_dest_field)
+                if ip:
+                    raw_version = self._get_nested_values(ojson, ip_version_field) if ip_version_field else None
+                    if isinstance(raw_version, bool):
+                        ip_version = 6 if raw_version else 4
+                    elif raw_version in (4, 6):
+                        ip_version = raw_version
+                    else:
+                        ip_version = 6 if ":" in str(ip) else 4
+                    ip = (str(ip), ip_version)
+
+            for cve_id in cve_ids:
+                if cve_id not in cve_ips:
+                    cve_ips[cve_id] = set()
+                if ip:
+                    cve_ips[cve_id].add(ip)
+
+        for cve_id, ips in cve_ips.items():
             self.helper.log_debug(f"Creating vulnerability object for: {cve_id}")
             stix_vuln = stix2.Vulnerability(
                 id=Vulnerability.generate_id(cve_id),
@@ -695,13 +717,36 @@ class ONYPHEConnector:
                 ],
             )
             self.stix_objects.append(stix_vuln)
-            rel = self._generate_stix_relationship(
-                self.stix_entity["id"], "has", stix_vuln["id"]
-            )
-            self.stix_objects.append(rel)
-            self.helper.log_debug(
-                f"New relationship appended for {self.stix_entity['id']} - has - {stix_vuln['id']}"
-            )
+
+            if is_indicator:
+                # indicator indicates vulnerability
+                rel = self._generate_stix_relationship(
+                    self.stix_entity["id"], "indicates", stix_vuln["id"]
+                )
+                self.stix_objects.append(rel)
+                self.helper.log_debug(
+                    f"New relationship appended for {self.stix_entity['id']} - indicates - {stix_vuln['id']}"
+                )
+                # ipv4-addr/ipv6-addr has vulnerability (one per source IP)
+                for ip_value, ip_version in ips:
+                    ip_class = stix2.IPv4Address if ip_version == 4 else stix2.IPv6Address
+                    ip_obj = ip_class(value=ip_value)
+                    rel = self._generate_stix_relationship(
+                        ip_obj["id"], "has", stix_vuln["id"]
+                    )
+                    self.stix_objects.append(rel)
+                    self.helper.log_debug(
+                        f"New relationship appended for {ip_obj['id']} ({ip_value}) - has - {stix_vuln['id']}"
+                    )
+            else:
+                # observable has vulnerability
+                rel = self._generate_stix_relationship(
+                    self.stix_entity["id"], "has", stix_vuln["id"]
+                )
+                self.stix_objects.append(rel)
+                self.helper.log_debug(
+                    f"New relationship appended for {self.stix_entity['id']} - has - {stix_vuln['id']}"
+                )
 
     def _upsert_stix_observable(self, description, labels):
         self.helper.log_debug(f"Upsert observables for: {self.stix_entity.get('id')}")
