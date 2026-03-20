@@ -547,20 +547,79 @@ class ONYPHEConnector:
         self.helper.log_debug(
             f"Generate hostname observables: {self.stix_entity.get('id')}"
         )
-        hostnames = set()
-
         hostname_fields = self.profile.field_map["dns_hostname"]
+        hostname_rel_map = self.profile.field_map.get("dns_hostname_rel", {})
+
+        # Group hostnames by relationship type so DNS-sourced ones get resolves-to
+        # and cert/mixed-source ones get related-to.
+        rel_groups: Dict[str, set] = {}
+        for ojson in response:
+            for field_path in hostname_fields:
+                values = self._get_nested_values(ojson, field_path)
+                if values:
+                    rel_type = hostname_rel_map.get(field_path, "related-to")
+                    if rel_type not in rel_groups:
+                        rel_groups[rel_type] = set()
+                    if isinstance(values, list):
+                        rel_groups[rel_type].update(str(v) for v in values if v)
+                    else:
+                        rel_groups[rel_type].add(str(values))
+
+        for rel_type, hostnames in rel_groups.items():
+            values_dict = {h: {} for h in hostnames}
+            self._process_observable(
+                values_dict, "hostname", CustomObservableHostname,
+                relationship_type=rel_type,
+            )
+
+    def _generate_stix_hostname_domain_relationships(self, response):
+        """Create hostname -belongs-to-> domain-name relationships.
+
+        ONYPHE pre-extracts domain names (handling public suffix lists), so for
+        every hostname in the results there will be a corresponding domain entry.
+        We match by suffix: if a hostname ends with '.<domain>' it belongs to
+        that domain. No FQDN parsing is done here.
+        """
+        self.helper.log_debug(
+            f"Generate hostname->domain relationships: {self.stix_entity.get('id')}"
+        )
+        hostname_fields = self.profile.field_map["dns_hostname"]
+        domain_fields = self.profile.field_map["dns_domain"]
+
+        all_hostnames: set = set()
+        all_domains: set = set()
+
         for ojson in response:
             for field_path in hostname_fields:
                 values = self._get_nested_values(ojson, field_path)
                 if values:
                     if isinstance(values, list):
-                        hostnames.update(str(v) for v in values if v)
+                        all_hostnames.update(str(v) for v in values if v)
                     else:
-                        hostnames.add(str(values))
+                        all_hostnames.add(str(values))
+            for field_path in domain_fields:
+                values = self._get_nested_values(ojson, field_path)
+                if values:
+                    if isinstance(values, list):
+                        all_domains.update(str(v) for v in values if v)
+                    else:
+                        all_domains.add(str(values))
 
-        values_dict = {hostname: {} for hostname in hostnames}
-        self._process_observable(values_dict, "hostname", CustomObservableHostname)
+        if not all_hostnames or not all_domains:
+            return
+
+        for hostname in all_hostnames:
+            for domain in all_domains:
+                if hostname.endswith("." + domain) or hostname == domain:
+                    hostname_obj = CustomObservableHostname(value=hostname)
+                    domain_obj = stix2.DomainName(value=domain)
+                    rel = self._generate_stix_relationship(
+                        hostname_obj["id"], "belongs-to", domain_obj["id"]
+                    )
+                    self.stix_objects.append(rel)
+                    self.helper.log_debug(
+                        f"New relationship appended for {hostname} - belongs-to - {domain}"
+                    )
 
     def _generate_stix_text(self, response):
         self.helper.log_debug(
@@ -823,26 +882,26 @@ class ONYPHEConnector:
                 self.helper.log_debug(
                     f"New relationship appended for {self.stix_entity['id']} - indicates - {stix_vuln['id']}"
                 )
-                # ipv4-addr/ipv6-addr has vulnerability (one per source IP)
+                # ipv4-addr/ipv6-addr related-to vulnerability (one per source IP)
                 for ip_value, ip_version in ips:
                     ip_class = stix2.IPv4Address if ip_version == 4 else stix2.IPv6Address
                     ip_obj = ip_class(value=ip_value)
                     self.stix_objects.append(ip_obj)
                     rel = self._generate_stix_relationship(
-                        ip_obj["id"], "has", stix_vuln["id"]
+                        ip_obj["id"], "related-to", stix_vuln["id"]
                     )
                     self.stix_objects.append(rel)
                     self.helper.log_debug(
-                        f"New relationship appended for {ip_obj['id']} ({ip_value}) - has - {stix_vuln['id']}"
+                        f"New relationship appended for {ip_obj['id']} ({ip_value}) - related-to - {stix_vuln['id']}"
                     )
             else:
-                # observable has vulnerability
+                # observable related-to vulnerability
                 rel = self._generate_stix_relationship(
-                    self.stix_entity["id"], "has", stix_vuln["id"]
+                    self.stix_entity["id"], "related-to", stix_vuln["id"]
                 )
                 self.stix_objects.append(rel)
                 self.helper.log_debug(
-                    f"New relationship appended for {self.stix_entity['id']} - has - {stix_vuln['id']}"
+                    f"New relationship appended for {self.stix_entity['id']} - related-to - {stix_vuln['id']}"
                 )
 
     def _upsert_stix_observable(self, description, labels):
