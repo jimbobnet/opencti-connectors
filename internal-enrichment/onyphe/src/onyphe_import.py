@@ -7,6 +7,7 @@ from onyphe_api import APIError, Onyphe
 from onyphe_references import (
     ANALYTICAL_PIVOTS,
     CATEGORY_PROFILES,
+    GENERATOR_TYPE_MAP,
     HASH_KEY_MAP,
     PIVOT_MAP,
     REVERSE_PIVOT_MAP,
@@ -50,12 +51,56 @@ class ONYPHEConnector:
             )
         self.profile = profile
 
+        if config.enrichment_types:
+            self.helper.log_info(
+                f"Enrichment type filter active: {config.enrichment_types}"
+            )
+            self.profile = self._apply_enrichment_type_filter(
+                profile, config.enrichment_types
+            )
+
         # ONYPHE Identity
         self.onyphe_identity = self.helper.api.identity.create(
             type="Organization",
             name=self.helper.get_name(),
             description=f"Connector Enrichment {self.helper.get_name()}",
         )
+
+    @staticmethod
+    def _apply_enrichment_type_filter(profile, enabled_types):
+        """Return a copy of *profile* with stix_generators filtered to only
+        include generators that produce one of the *enabled_types*.
+
+        Infrastructure generators (_generate_stix_identity, _upsert_stix_observable)
+        are always kept.  The hostname<->domain relationship generator is kept only
+        when both Hostname and Domain-Name are enabled.
+        """
+        from dataclasses import replace as dc_replace
+
+        enabled_lower = {t.lower() for t in enabled_types}
+
+        _ALWAYS_INCLUDE = {"_generate_stix_identity", "_upsert_stix_observable"}
+        _REL_GENERATOR = "_generate_stix_hostname_domain_relationships"
+        include_rel = (
+            "hostname" in enabled_lower and "domain-name" in enabled_lower
+        )
+
+        filtered_generators = {}
+        for obs_type, gen_list in profile.stix_generators.items():
+            new_list = []
+            for gen_name in gen_list:
+                if gen_name in _ALWAYS_INCLUDE:
+                    new_list.append(gen_name)
+                elif gen_name == _REL_GENERATOR:
+                    if include_rel:
+                        new_list.append(gen_name)
+                else:
+                    produced = GENERATOR_TYPE_MAP.get(gen_name, [])
+                    if any(t.lower() in enabled_lower for t in produced):
+                        new_list.append(gen_name)
+            filtered_generators[obs_type] = new_list
+
+        return dc_replace(profile, stix_generators=filtered_generators)
 
     def _safe_get(self, d, key, empty=(None, "", {}, [])):
         value = d.get(key)

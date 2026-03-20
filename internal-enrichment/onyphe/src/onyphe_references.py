@@ -27,6 +27,21 @@ PIVOT_MAP = dict(ANALYTICAL_PIVOTS)
 
 REVERSE_PIVOT_MAP = {v: k for k, v in PIVOT_MAP.items()}
 
+# Maps each generator function name to the OpenCTI observable type(s) it produces.
+# Generators absent from this map are infrastructure (always run regardless of filter):
+#   _generate_stix_identity, _upsert_stix_observable
+# The relationships generator is handled separately: it runs only when both
+# Hostname and Domain-Name are in the enabled types.
+GENERATOR_TYPE_MAP: Dict[str, List[str]] = {
+    "_generate_stix_domain": ["Domain-Name"],
+    "_generate_stix_ip": ["IPv4-Address", "IPv6-Address"],
+    "_generate_stix_hostname": ["Hostname"],
+    "_generate_stix_text": ["Text"],
+    "_generate_stix_asn": ["Autonomous-System"],
+    "_generate_stix_x509": ["X509-Certificate"],
+    "_generate_stix_vulnerability": ["Vulnerability"],
+}
+
 
 # ─── Ctiscan ──────────────────────────────────────────────────────────────────
 

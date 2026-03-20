@@ -20,4 +20,9 @@ services:
       - ONYPHE_CREATE_NOTE=false
       - ONYPHE_IMPORT_FULL_DATA=false
       - ONYPHE_PIVOT_THRESHOLD=10
+      # Comma-separated list of OpenCTI types to create during enrichment.
+      # Leave empty (default) to create all types.
+      # Valid values: Domain-Name,Hostname,IPv4-Address,IPv6-Address,
+      #               Autonomous-System,X509-Certificate,Text,Vulnerability
+      #- ONYPHE_ENRICHMENT_TYPES=
     restart: always

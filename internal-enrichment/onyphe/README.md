@@ -24,6 +24,11 @@
   - [Indicator Enrichment](#indicator-enrichment)
   - [Generated STIX Objects](#generated-stix-objects)
 - [Warnings](#warnings)
+  - [Import Full Data](#import-full-data)
+  - [Pivot Threshold](#pivot-threshold)
+  - [Indicator Max Results](#indicator-max-results)
+  - [Enrichment Types](#enrichment-types)
+  - [Auto Enrichment](#auto-enrichment)
 - [Debugging](#debugging)
 - [Additional Information](#additional-information)
 
@@ -88,6 +93,7 @@ The connector supports multiple [ONYPHE data categories](https://search.onyphe.i
 | `onyphe_pivot_threshold` | `ONYPHE_PIVOT_THRESHOLD` | No | Skip observable enrichment if result count exceeds this (default: `10`) |
 | `onyphe_indicator_max_results` | `ONYPHE_INDICATOR_MAX_RESULTS` | No | Maximum results to fetch when enriching an indicator. If the first page reveals more total results than this, the query is considered too imprecise and no results are imported (default: `1000`) |
 | `onyphe_pattern_type` | `ONYPHE_PATTERN_TYPE` | No | Vocabulary entry for ONYPHE indicator pattern type (default: `onyphe`) |
+| `onyphe_enrichment_types` | `ONYPHE_ENRICHMENT_TYPES` | No | Comma-separated list of OpenCTI object types to create during enrichment. Leave empty to create all types (default). See [Enrichment Types](#enrichment-types) for valid values. |
 
 #### Connector scope by category
 
@@ -310,6 +316,34 @@ Setting `ONYPHE_IMPORT_FULL_DATA=true` imports the complete raw application resp
 ### Indicator Max Results
 
 `ONYPHE_INDICATOR_MAX_RESULTS` is a sanity check for indicator enrichment. When a user submits an OQL indicator for enrichment, the connector fetches the first page of results and checks the total count. If the total exceeds this limit, the query is assumed to be too imprecise (e.g. a typo or an overly broad pattern) and no results are imported. Otherwise, all matching results are paginated and processed. The default is `1000`. This parameter is intentionally separate from `ONYPHE_PIVOT_THRESHOLD` — indicator enrichment is always a deliberate human action, so a much higher ceiling is appropriate.
+
+### Enrichment Types
+
+`ONYPHE_ENRICHMENT_TYPES` controls which OpenCTI object types the connector is allowed to create when enriching an observable. By default the parameter is empty, meaning all supported types are created. Set it to a comma-separated list to restrict output to only the types you need.
+
+Valid values:
+
+| Value | Generator | ctiscan | riskscan |
+|-------|-----------|:-------:|:--------:|
+| `Domain-Name` | `_generate_stix_domain` | Yes | Yes |
+| `Hostname` | `_generate_stix_hostname` | Yes | Yes |
+| `IPv4-Address` / `IPv6-Address` | `_generate_stix_ip` | Yes | Yes |
+| `Autonomous-System` | `_generate_stix_asn` | Yes | Yes |
+| `X509-Certificate` | `_generate_stix_x509` | Yes | Yes |
+| `Text` | `_generate_stix_text` | Yes | — |
+| `Vulnerability` | `_generate_stix_vulnerability` | — | Yes |
+
+**Notes:**
+- The `Organization` identity and the upsert of the source observable are always created regardless of this setting.
+- The `Hostname`↔`Domain-Name` relationship is created only when **both** `Hostname` and `Domain-Name` are in the list.
+- Type matching is case-insensitive (`domain-name`, `Domain-Name`, and `DOMAIN-NAME` are all accepted).
+
+**Example** — riskscan instance that only creates vulnerabilities and IP addresses:
+
+```yaml
+- ONYPHE_CATEGORY=riskscan
+- ONYPHE_ENRICHMENT_TYPES=IPv4-Address,IPv6-Address,Vulnerability
+```
 
 ### Auto Enrichment
 

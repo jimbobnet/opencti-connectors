@@ -130,3 +130,20 @@ class ConfigConnector:
             default=1000,
             isNumber=True,
         )
+
+        # CSV list of OpenCTI observable types (and "Vulnerability") to create
+        # during enrichment.  An empty value means "all types" (default behaviour).
+        # Valid values: Domain-Name, Hostname, IPv4-Address, IPv6-Address,
+        #               Autonomous-System, X509-Certificate, Text, Vulnerability
+        enrichment_types_raw = get_config_variable(
+            "ONYPHE_ENRICHMENT_TYPES",
+            ["onyphe", "enrichment_types"],
+            self.load,
+            default="",
+        )
+        if enrichment_types_raw:
+            self.enrichment_types = [
+                t.strip() for t in enrichment_types_raw.split(",") if t.strip()
+            ]
+        else:
+            self.enrichment_types = []
