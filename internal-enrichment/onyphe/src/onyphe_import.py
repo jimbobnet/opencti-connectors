@@ -704,7 +704,6 @@ class ONYPHEConnector:
         """
         fm = self.profile.field_map
         ip_dest_field = fm["ip_dest"]
-        ip_org_field = fm["ip_org"]
         cve_field = fm.get("cve")
         hostname_fields = fm["dns_hostname"]
 
@@ -726,9 +725,8 @@ class ONYPHEConnector:
                         hostnames.extend(str(v) for v in values if v)
                     else:
                         hostnames.append(str(values))
-            hostname_str = "<br>".join(hostnames) if hostnames else ""
+            hostname_str = ", ".join(hostnames) if hostnames else ""
 
-            org = self._get_nested_values(ojson, ip_org_field) or ""
             ip_port = f"{ip}:{port}" if port else str(ip)
 
             findings = []
@@ -743,7 +741,7 @@ class ONYPHEConnector:
                 findings.extend(str(c) for c in cves if c)
 
             for finding in findings:
-                rows.append((finding, ip_port, service, hostname_str, org))
+                rows.append((finding, ip_port, service, hostname_str))
 
         # Deduplicate while preserving order
         seen = set()
@@ -754,11 +752,11 @@ class ONYPHEConnector:
                 unique_rows.append(row)
 
         note_title = f"ONYPHE {self.onyphe_category.title()} Findings"
-        note_content = f"| Total Results | {len(results)} |\n|------|-------|\n\n"
-        note_content += "| Risk / CVE | IP:Port | Service | Hostname | Organization |\n"
-        note_content += "|------------|---------|---------|----------|---------------|\n"
-        for finding, ip_port, service, hostname, org in unique_rows:
-            note_content += f"| {finding} | {ip_port} | {service} | {hostname} | {org} |\n"
+        note_content = f"| Total Findings | {len(unique_rows)} |\n|------|-------|\n\n"
+        note_content += "| Risk / CVE | IP:Port | Service | Hostname |\n"
+        note_content += "|------------|---------|---------|----------|\n"
+        for finding, ip_port, service, hostname in unique_rows:
+            note_content += f"| {finding} | {ip_port} | {service} | {hostname} |\n"
         return note_title, note_content
 
     def _generate_stix_vulnerability(self, response):
@@ -829,6 +827,7 @@ class ONYPHEConnector:
                 for ip_value, ip_version in ips:
                     ip_class = stix2.IPv4Address if ip_version == 4 else stix2.IPv6Address
                     ip_obj = ip_class(value=ip_value)
+                    self.stix_objects.append(ip_obj)
                     rel = self._generate_stix_relationship(
                         ip_obj["id"], "has", stix_vuln["id"]
                     )
@@ -1134,7 +1133,28 @@ class ONYPHEConnector:
 
                 self.helper.log_debug(f"Trying ONYPHE query for : {oql}")
 
-                response = self.onyphe_client.search_oql(oql)
+                first_page = self.onyphe_client.search_oql(oql)
+                total_available = first_page.get("total", 0)
+                if total_available > self.config.indicator_max_results:
+                    self.helper.log_info(
+                        f"Indicator query matched {total_available} results, "
+                        f"exceeding indicator_max_results ({self.config.indicator_max_results}). "
+                        "Query may be too imprecise — no results imported."
+                    )
+                    return (
+                        f"Sent 0 bundles for import. Indicator query returned "
+                        f"{total_available} results, over the {self.config.indicator_max_results} limit."
+                    )
+                all_results = first_page.get("results", [])
+                page = 2
+                while len(all_results) < total_available and len(all_results) < self.config.indicator_max_results:
+                    page_response = self.onyphe_client.search_oql(oql, page=page)
+                    page_results = page_response.get("results", [])
+                    if not page_results:
+                        break
+                    all_results.extend(page_results)
+                    page += 1
+                response = {"total": total_available, "results": all_results}
                 self.helper.log_debug(f"Got json response: {response}")
                 results = response["results"]
                 number_processed = response["total"]

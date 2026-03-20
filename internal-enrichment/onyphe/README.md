@@ -86,6 +86,7 @@ The connector supports multiple [ONYPHE data categories](https://search.onyphe.i
 | `onyphe_create_note` | `ONYPHE_CREATE_NOTE` | No | Attach enrichment summary as a Note (default: `false`) |
 | `onyphe_import_full_data` | `ONYPHE_IMPORT_FULL_DATA` | No | Import full raw response text — can produce large data (default: `false`) |
 | `onyphe_pivot_threshold` | `ONYPHE_PIVOT_THRESHOLD` | No | Skip observable enrichment if result count exceeds this (default: `10`) |
+| `onyphe_indicator_max_results` | `ONYPHE_INDICATOR_MAX_RESULTS` | No | Maximum results to fetch when enriching an indicator. If the first page reveals more total results than this, the query is considered too imprecise and no results are imported (default: `1000`) |
 | `onyphe_pattern_type` | `ONYPHE_PATTERN_TYPE` | No | Vocabulary entry for ONYPHE indicator pattern type (default: `onyphe`) |
 
 #### Connector scope by category
@@ -126,6 +127,7 @@ services:
       - ONYPHE_CREATE_NOTE=true
       - ONYPHE_IMPORT_FULL_DATA=false
       - ONYPHE_PIVOT_THRESHOLD=100
+      - ONYPHE_INDICATOR_MAX_RESULTS=1000
     restart: always
 ```
 
@@ -157,6 +159,7 @@ services:
       - ONYPHE_DEFAULT_SCORE=50
       - ONYPHE_IMPORT_SEARCH_RESULTS=true
       - ONYPHE_PIVOT_THRESHOLD=100
+      - ONYPHE_INDICATOR_MAX_RESULTS=1000
     restart: always
 
   # Attack surface management — uses ONYPHE riskscan category
@@ -177,6 +180,7 @@ services:
       - ONYPHE_DEFAULT_SCORE=50
       - ONYPHE_IMPORT_SEARCH_RESULTS=true
       - ONYPHE_PIVOT_THRESHOLD=100
+      - ONYPHE_INDICATOR_MAX_RESULTS=1000
     restart: always
 ```
 
@@ -301,7 +305,11 @@ Setting `ONYPHE_IMPORT_FULL_DATA=true` imports the complete raw application resp
 
 ### Pivot Threshold
 
-`ONYPHE_PIVOT_THRESHOLD` sets the maximum number of results before observable enrichment is skipped entirely for a given query. This guards against runaway imports on broad queries. The default is `10` — raise it deliberately for known high-cardinality targets.
+`ONYPHE_PIVOT_THRESHOLD` sets the maximum number of results before observable enrichment is skipped entirely. This guards against runaway imports when the connector is running in automatic mode — a common IP or domain appearing in many results could otherwise trigger an exponential growth in observables. The default is `10` — raise it deliberately for known high-cardinality targets.
+
+### Indicator Max Results
+
+`ONYPHE_INDICATOR_MAX_RESULTS` is a sanity check for indicator enrichment. When a user submits an OQL indicator for enrichment, the connector fetches the first page of results and checks the total count. If the total exceeds this limit, the query is assumed to be too imprecise (e.g. a typo or an overly broad pattern) and no results are imported. Otherwise, all matching results are paginated and processed. The default is `1000`. This parameter is intentionally separate from `ONYPHE_PIVOT_THRESHOLD` — indicator enrichment is always a deliberate human action, so a much higher ceiling is appropriate.
 
 ### Auto Enrichment
 

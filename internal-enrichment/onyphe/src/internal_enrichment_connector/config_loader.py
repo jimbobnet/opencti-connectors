@@ -122,3 +122,11 @@ class ConfigConnector:
             self.load,
             default="ctiscan",
         )
+
+        self.indicator_max_results = get_config_variable(
+            "ONYPHE_INDICATOR_MAX_RESULTS",
+            ["onyphe", "indicator_max_results"],
+            self.load,
+            default=1000,
+            isNumber=True,
+        )
