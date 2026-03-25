@@ -2,17 +2,6 @@ from datetime import datetime
 from typing import Dict
 
 import stix2
-from pycti import (
-    STIX_EXT_OCTI_SCO,
-    CustomObservableHostname,
-    CustomObservableText,
-    Identity,
-    Note,
-    OpenCTIConnectorHelper,
-    StixCoreRelationship,
-    Vulnerability,
-)
-
 from internal_enrichment_connector.config_loader import ConfigConnector
 from onyphe_api import APIError, Onyphe
 from onyphe_references import (
@@ -23,6 +12,16 @@ from onyphe_references import (
     HASH_KEY_MAP,
     PIVOT_MAP,
     REVERSE_PIVOT_MAP,
+)
+from pycti import (
+    STIX_EXT_OCTI_SCO,
+    CustomObservableHostname,
+    CustomObservableText,
+    Identity,
+    Note,
+    OpenCTIConnectorHelper,
+    StixCoreRelationship,
+    Vulnerability,
 )
 
 
