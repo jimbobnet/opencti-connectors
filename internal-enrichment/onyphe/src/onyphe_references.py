@@ -1,4 +1,5 @@
-from dataclasses import dataclass, field as dc_field
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from typing import Callable, Dict, List, Optional, Tuple
 
 # ─── Shared ───────────────────────────────────────────────────────────────────
