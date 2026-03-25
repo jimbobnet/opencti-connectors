@@ -49,10 +49,10 @@ ANALYTICAL_PIVOTS = [
 # where sha256 is absent from the ctiscan data model.
 DEFAULT_PIVOT_LABELS: List[str] = [
     "hhhash-sha256",
-    "ja4t-md5",           # no sha256 in data model
-    "ja3s-md5",           # no sha256 in data model
-    "ja4s-md5",           # no sha256 in data model
-    "hassh-md5",          # no sha256 in data model
+    "ja4t-md5",  # no sha256 in data model
+    "ja3s-md5",  # no sha256 in data model
+    "ja4s-md5",  # no sha256 in data model
+    "hassh-md5",  # no sha256 in data model
     "favicon-sha256",
     "tcp-fingerprint-md5",  # no sha256 in data model
     "app-data-sha256",
@@ -176,7 +176,7 @@ _CTISCAN_TYPE_HANDLERS: Dict = {
 # ip_version: integer field returning 4 or 6.
 _CTISCAN_FIELD_MAP: Dict[str, Optional[object]] = {
     "ip_dest": "ip.dest",
-    "ip_version": "ip.version",      # integer: 4 or 6
+    "ip_version": "ip.version",  # integer: 4 or 6
     "ip_asn": "ip.asn",
     "ip_org": "ip.organization",
     "dns_domain": ["dns.domain", "cert.domain"],
@@ -185,7 +185,7 @@ _CTISCAN_FIELD_MAP: Dict[str, Optional[object]] = {
     # dns.hostname comes from the DNS layer → resolves-to is accurate.
     # cert.hostname comes from certificate SANs → related-to is more honest.
     "dns_hostname_rel": {"dns.hostname": "resolves-to", "cert.hostname": "related-to"},
-    "cert_root": "cert",             # cert data lives under ojson["cert"]
+    "cert_root": "cert",  # cert data lives under ojson["cert"]
     "cert_sha256": "cert.fingerprint.sha256",
     "cve": "component.cve",
 }
@@ -285,7 +285,7 @@ _CTISCAN_STIX_GENERATORS: Dict[str, List[str]] = {
 # This list is used only to build the -fields: OQL parameter so the API returns
 # exactly the fields needed to render the findings table.
 _RISKSCAN_SUMMARYS: List[Tuple[str, int]] = [
-    ("tag", 0),          # risk tags, e.g. risk::opendatabase
+    ("tag", 0),  # risk tags, e.g. risk::opendatabase
     ("cve", 0),
     ("ip", 0),
     ("port", 0),
@@ -350,12 +350,12 @@ _RISKSCAN_TYPE_HANDLERS: Dict = {
 #   forward DNS, and cert FQDNs; no need to query "reverse" separately.
 _RISKSCAN_FIELD_MAP: Dict[str, Optional[object]] = {
     "ip_dest": "ip",
-    "ip_version": "ipv6",            # boolean: True = IPv6, False/absent = IPv4
+    "ip_version": "ipv6",  # boolean: True = IPv6, False/absent = IPv4
     "ip_asn": "asn",
     "ip_org": "organization",
     "dns_domain": ["domain"],
     "dns_hostname": ["hostname"],
-    "cert_root": None,               # cert fields are at the document top level
+    "cert_root": None,  # cert fields are at the document top level
     "cert_sha256": "fingerprint.sha256",
     "cve": "cve",
 }

@@ -40,7 +40,9 @@ class Onyphe:
             try:
                 response = self._session.get(url=url, params=query_params)
             except Exception as exc:
-                raise APIGeneralError(f"Couldn't connect to ONYPHE API : {url}") from exc
+                raise APIGeneralError(
+                    f"Couldn't connect to ONYPHE API : {url}"
+                ) from exc
 
             if response.status_code != 429:
                 break
@@ -72,7 +74,9 @@ class Onyphe:
             query_params["size"] = size
         if page is not None:
             query_params["page"] = page
-        return self._request(path=url_path, query_params=query_params if query_params else None)
+        return self._request(
+            path=url_path, query_params=query_params if query_params else None
+        )
 
     def search_oql_paginated(self, oql: str, limit: int):
         """Fetch up to limit results, paginating in batches of 100 (API max page size).
@@ -89,7 +93,9 @@ class Onyphe:
         page = 2
         while len(results) < min(limit, total) and page <= MAX_PAGES:
             remaining = min(limit, total) - len(results)
-            page_response = self.search_oql(oql, size=min(PAGE_SIZE, remaining), page=page)
+            page_response = self.search_oql(
+                oql, size=min(PAGE_SIZE, remaining), page=page
+            )
             page_results = page_response.get("results", [])
             if not page_results:
                 break

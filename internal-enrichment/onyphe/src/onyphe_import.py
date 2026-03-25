@@ -60,7 +60,11 @@ class ONYPHEConnector:
                 profile, config.enrichment_types
             )
 
-        selected_labels = config.text_fingerprints if config.text_fingerprints else DEFAULT_PIVOT_LABELS
+        selected_labels = (
+            config.text_fingerprints
+            if config.text_fingerprints
+            else DEFAULT_PIVOT_LABELS
+        )
         label_set = set(selected_labels)
         self.active_pivots = [(f, l) for f, l in ANALYTICAL_PIVOTS if l in label_set]
         self.helper.log_info(
@@ -89,9 +93,7 @@ class ONYPHEConnector:
 
         _ALWAYS_INCLUDE = {"_generate_stix_identity", "_upsert_stix_observable"}
         _REL_GENERATOR = "_generate_stix_hostname_domain_relationships"
-        include_rel = (
-            "hostname" in enabled_lower and "domain-name" in enabled_lower
-        )
+        include_rel = "hostname" in enabled_lower and "domain-name" in enabled_lower
 
         filtered_generators = {}
         for obs_type, gen_list in profile.stix_generators.items():
@@ -177,9 +179,9 @@ class ONYPHEConnector:
             return self._get_nested_values(ojson, cert_root)
         # Flat model: cert fields are at the top level.  Only treat the document
         # as a cert record when at least one fingerprint hash is present.
-        if self._get_nested_values(ojson, "fingerprint.sha256") or self._get_nested_values(
-            ojson, "fingerprint.md5"
-        ):
+        if self._get_nested_values(
+            ojson, "fingerprint.sha256"
+        ) or self._get_nested_values(ojson, "fingerprint.md5"):
             return ojson
         return None
 
@@ -279,7 +281,9 @@ class ONYPHEConnector:
 
     def _generate_description_ctiscan(self, response):
         """Build an enrichment description from ctiscan (layered model) results."""
-        self.helper.log_debug(f"Generate ctiscan description (preview) : {str(response)[:500]}")
+        self.helper.log_debug(
+            f"Generate ctiscan description (preview) : {str(response)[:500]}"
+        )
         count = str(len(response))
 
         service_parts = ["Services:\n"]
@@ -340,7 +344,9 @@ class ONYPHEConnector:
 
     def _generate_description_riskscan(self, response):
         """Build an enrichment description from riskscan (flat datascan model) results."""
-        self.helper.log_debug(f"Generate riskscan description (preview) : {str(response)[:500]}")
+        self.helper.log_debug(
+            f"Generate riskscan description (preview) : {str(response)[:500]}"
+        )
         count = str(len(response))
 
         if not response:
@@ -577,7 +583,11 @@ class ONYPHEConnector:
         for ojson in response:
             ip_value = self._get_nested_values(ojson, ip_dest_field)
             if ip_value:
-                raw_version = self._get_nested_values(ojson, ip_version_field) if ip_version_field else None
+                raw_version = (
+                    self._get_nested_values(ojson, ip_version_field)
+                    if ip_version_field
+                    else None
+                )
                 if isinstance(raw_version, bool):
                     # riskscan: ipv6 boolean field
                     ip_version = 6 if raw_version else 4
@@ -620,7 +630,9 @@ class ONYPHEConnector:
         for rel_type, hostnames in rel_groups.items():
             values_dict = {h: {} for h in hostnames}
             self._process_observable(
-                values_dict, "hostname", CustomObservableHostname,
+                values_dict,
+                "hostname",
+                CustomObservableHostname,
                 relationship_type=rel_type,
             )
 
@@ -826,7 +838,9 @@ class ONYPHEConnector:
             protocol = self._get_nested_values(ojson, "protocol") or ""
             tls_raw = self._get_nested_values(ojson, "tls")
             tls_str = "/tls" if tls_raw in (True, "true") else ""
-            service = f"{transport}/{protocol}{tls_str}" if (transport or protocol) else ""
+            service = (
+                f"{transport}/{protocol}{tls_str}" if (transport or protocol) else ""
+            )
 
             hostnames = []
             for field_path in hostname_fields:
@@ -844,7 +858,9 @@ class ONYPHEConnector:
             tags = self._get_nested_values(ojson, "tag") or []
             if isinstance(tags, str):
                 tags = [tags]
-            findings.extend(t for t in tags if isinstance(t, str) and t.startswith("risk::"))
+            findings.extend(
+                t for t in tags if isinstance(t, str) and t.startswith("risk::")
+            )
             if cve_field:
                 cves = self._get_nested_values(ojson, cve_field) or []
                 if isinstance(cves, str):
@@ -888,13 +904,21 @@ class ONYPHEConnector:
             values = self._get_nested_values(ojson, cve_field)
             if not values:
                 continue
-            cve_ids = [str(v) for v in values if v] if isinstance(values, list) else [str(values)]
+            cve_ids = (
+                [str(v) for v in values if v]
+                if isinstance(values, list)
+                else [str(values)]
+            )
 
             ip = None
             if is_indicator and ip_dest_field:
                 ip = self._get_nested_values(ojson, ip_dest_field)
                 if ip:
-                    raw_version = self._get_nested_values(ojson, ip_version_field) if ip_version_field else None
+                    raw_version = (
+                        self._get_nested_values(ojson, ip_version_field)
+                        if ip_version_field
+                        else None
+                    )
                     if isinstance(raw_version, bool):
                         ip_version = 6 if raw_version else 4
                     elif raw_version in (4, 6):
@@ -936,7 +960,9 @@ class ONYPHEConnector:
                 )
                 # ipv4-addr/ipv6-addr related-to vulnerability (one per source IP)
                 for ip_value, ip_version in ips:
-                    ip_class = stix2.IPv4Address if ip_version == 4 else stix2.IPv6Address
+                    ip_class = (
+                        stix2.IPv4Address if ip_version == 4 else stix2.IPv6Address
+                    )
                     ip_obj = ip_class(value=ip_value)
                     self.stix_objects.append(ip_obj)
                     rel = self._generate_stix_relationship(
@@ -1090,9 +1116,7 @@ class ONYPHEConnector:
         usable hashes or the profile has no cert fingerprint field mapping.
         """
         if "hashes" not in stix_entity:
-            raise ValueError(
-                f"x509-certificate doesn't contain hashes: {stix_entity}"
-            )
+            raise ValueError(f"x509-certificate doesn't contain hashes: {stix_entity}")
         hashes = stix_entity["hashes"]
         if not isinstance(hashes, dict):
             raise ValueError(
@@ -1226,9 +1250,7 @@ class ONYPHEConnector:
                     "-dayago:",
                     "-monthago:",
                 )
-                user_has_time_filter = any(
-                    tf in ctifilter for tf in OQL_TIME_FILTERS
-                )
+                user_has_time_filter = any(tf in ctifilter for tf in OQL_TIME_FILTERS)
                 oql_parts = [ctifilter.strip()]
                 if not user_has_time_filter:
                     oql_parts.append(f"-since:{self.config.time_since}")
@@ -1258,7 +1280,10 @@ class ONYPHEConnector:
                     )
                 all_results = first_page.get("results", [])
                 page = 2
-                while len(all_results) < total_available and len(all_results) < self.config.indicator_max_results:
+                while (
+                    len(all_results) < total_available
+                    and len(all_results) < self.config.indicator_max_results
+                ):
                     page_response = self.onyphe_client.search_oql(oql, page=page)
                     page_results = page_response.get("results", [])
                     if not page_results:
@@ -1274,7 +1299,9 @@ class ONYPHEConnector:
                 if self.profile.summary_style == "findings_table":
                     note_title, note_content = self._build_findings_table_note(results)
                 else:
-                    note_title, note_content = self._build_frequency_summary_note(results)
+                    note_title, note_content = self._build_frequency_summary_note(
+                        results
+                    )
 
                 created = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
                 note = stix2.Note(
