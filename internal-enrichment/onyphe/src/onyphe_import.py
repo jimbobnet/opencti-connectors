@@ -614,12 +614,17 @@ class ONYPHEConnector:
 
         # Group hostnames by relationship type so DNS-sourced ones get resolves-to
         # and cert/mixed-source ones get related-to.
+        # resolves-to is only valid from an IP observable; fall back to related-to
+        # when the enriched entity is an indicator.
+        is_indicator = self.stix_entity["type"] == "indicator"
         rel_groups: Dict[str, set] = {}
         for ojson in response:
             for field_path in hostname_fields:
                 values = self._get_nested_values(ojson, field_path)
                 if values:
                     rel_type = hostname_rel_map.get(field_path, "related-to")
+                    if is_indicator and rel_type == "resolves-to":
+                        rel_type = "related-to"
                     if rel_type not in rel_groups:
                         rel_groups[rel_type] = set()
                     if isinstance(values, list):
@@ -1144,6 +1149,16 @@ class ONYPHEConnector:
         stix_entity = data["stix_entity"]
         opencti_entity = data["enrichment_entity"]
 
+        try:
+            return self._process_message_inner(
+                stix_objects, stix_entity, opencti_entity
+            )
+        except Exception:
+            bundle = self.helper.stix2_create_bundle(stix_objects)
+            self.helper.send_stix2_bundle(bundle)
+            raise
+
+    def _process_message_inner(self, stix_objects, stix_entity, opencti_entity):
         self._extract_and_check_markings(opencti_entity)
 
         entity_value = self._safe_get(stix_entity, "value")
@@ -1157,7 +1172,10 @@ class ONYPHEConnector:
                 ctifilter += self._build_cert_fingerprint_filter(stix_entity)
                 is_observable = True
             except ValueError as e:
-                return self.helper.log_error(str(e))
+                self.helper.log_error(str(e))
+                bundle = self.helper.stix2_create_bundle(stix_objects)
+                self.helper.send_stix2_bundle(bundle)
+                return str(e)
 
         elif entity_type == "text":
             if "text" not in self.profile.stix_generators:
@@ -1182,6 +1200,8 @@ class ONYPHEConnector:
             )
             if onyphe_field is None:
                 self.helper.log_debug("No matching pivot label found.")
+                bundle = self.helper.stix2_create_bundle(stix_objects)
+                self.helper.send_stix2_bundle(bundle)
                 return "No matching pivot label found."
 
             ctifilter += f"{onyphe_field}:{entity_value}"
@@ -1204,6 +1224,8 @@ class ONYPHEConnector:
                     oql, limit=self.config.pivot_threshold
                 )
                 if response.get("total", 0) > self.config.pivot_threshold:
+                    bundle = self.helper.stix2_create_bundle(stix_objects)
+                    self.helper.send_stix2_bundle(bundle)
                     return "Sent 0 bundles for import. Results over pivot threshold."
 
                 bundle = self._generate_stix_bundle(
@@ -1215,7 +1237,10 @@ class ONYPHEConnector:
             except APIError as e:
                 raise ValueError(f"ONYPHE API Error : {str(e)}")
             except Exception as e:
-                return self.helper.log_error(f"Unexpected Error occurred: {str(e)}")
+                self.helper.log_error(f"Unexpected Error occurred: {str(e)}")
+                bundle = self.helper.stix2_create_bundle(stix_objects)
+                self.helper.send_stix2_bundle(bundle)
+                return f"Unexpected Error occurred: {str(e)}"
 
         elif (
             stix_entity["type"] == "indicator"
@@ -1274,6 +1299,8 @@ class ONYPHEConnector:
                         f"exceeding indicator_max_results ({self.config.indicator_max_results}). "
                         "Query may be too imprecise — no results imported."
                     )
+                    bundle = self.helper.stix2_create_bundle(stix_objects)
+                    self.helper.send_stix2_bundle(bundle)
                     return (
                         f"Sent 0 bundles for import. Indicator query returned "
                         f"{total_available} results, over the {self.config.indicator_max_results} limit."
@@ -1334,7 +1361,7 @@ class ONYPHEConnector:
                     bundle_objects = bundle_objects + bundle
 
                 uniq_bundles_objects = list(
-                    {obj["id"]: obj for obj in bundle_objects}.values()
+                    {obj["id"]: obj for obj in stix_objects + bundle_objects}.values()
                 )
                 bundle = self.helper.stix2_create_bundle(uniq_bundles_objects)
                 bundles_sent = self.helper.send_stix2_bundle(bundle)
@@ -1349,7 +1376,10 @@ class ONYPHEConnector:
             except APIError as e:
                 raise ValueError(f"ONYPHE API Error : {str(e)}")
             except Exception as e:
-                return self.helper.log_error(f"Unexpected Error occurred: {str(e)}")
+                self.helper.log_error(f"Unexpected Error occurred: {str(e)}")
+                bundle = self.helper.stix2_create_bundle(stix_objects)
+                self.helper.send_stix2_bundle(bundle)
+                return f"Unexpected Error occurred: {str(e)}"
         else:
             if stix_entity["type"] == "indicator":
                 raise ValueError(
