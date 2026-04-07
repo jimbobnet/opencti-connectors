@@ -29,6 +29,7 @@
   - [Indicator Max Results](#indicator-max-results)
   - [Enrichment Types](#enrichment-types)
   - [Text Fingerprints](#text-fingerprints)
+  - [Note Behaviour](#note-behaviour)
   - [Auto Enrichment](#auto-enrichment)
 - [Debugging](#debugging)
 - [Additional Information](#additional-information)
@@ -89,7 +90,8 @@ The connector supports multiple [ONYPHE data categories](https://search.onyphe.i
 | `onyphe_time_since` | `ONYPHE_TIME_SINCE` | No | Time window for data retrieval (default: `1w`) |
 | `onyphe_default_score` | `ONYPHE_DEFAULT_SCORE` | No | Default score for created observables (default: `50`) |
 | `onyphe_import_search_results` | `ONYPHE_IMPORT_SEARCH_RESULTS` | No | Import results as observables for indicator enrichment (default: `true`) |
-| `onyphe_create_note` | `ONYPHE_CREATE_NOTE` | No | Attach enrichment summary as a Note (default: `false`) |
+| `onyphe_create_note` | `ONYPHE_CREATE_NOTE` | No | Attach enrichment summary as a Note on observables (default: `false`) |
+| `onyphe_observable_note_replace` | `ONYPHE_OBSERVABLE_NOTE_REPLACE` | No | When `ONYPHE_CREATE_NOTE=true`, replace the existing observable Note on re-enrichment instead of creating a new one (default: `false`) |
 | `onyphe_import_full_data` | `ONYPHE_IMPORT_FULL_DATA` | No | Import full raw response text — can produce large data (default: `false`) |
 | `onyphe_pivot_threshold` | `ONYPHE_PIVOT_THRESHOLD` | No | Skip observable enrichment if result count exceeds this (default: `10`) |
 | `onyphe_indicator_max_results` | `ONYPHE_INDICATOR_MAX_RESULTS` | No | Maximum results to fetch when enriching an indicator. If the first page reveals more total results than this, the query is considered too imprecise and no results are imported (default: `1000`) |
@@ -276,6 +278,7 @@ The connector supports the following observable types as enrichment inputs. The 
 | Vulnerability | — | Yes |
 | Text (fingerprint pivots) | Yes (configurable via `ONYPHE_TEXT_FINGERPRINTS`) | — |
 | Note (indicator summary) | Yes | Yes |
+| Note (observable enrichment, optional) | Yes | Yes |
 | Labels | Yes | Yes |
 | External Reference | Yes | Yes |
 
@@ -386,6 +389,20 @@ To use a different selection, set the parameter to a comma-separated list of lab
 ```yaml
 - ONYPHE_TEXT_FINGERPRINTS=favicon-sha256,favicon-md5,favicon-mmh3,ssh-fingerprint-sha256,ssh-fingerprint-md5
 ```
+
+### Note Behaviour
+
+The connector creates STIX Note objects in two distinct contexts, with different default behaviours:
+
+**Indicator enrichment** — a Note containing the OQL query summary is always created and attached to the Indicator. The Note ID is derived from the Indicator's STIX ID and the note title, so re-enriching the same Indicator always produces the same ID. OpenCTI will upsert the Note, replacing the content with the latest results.
+
+**Observable enrichment** — a Note is only created when `ONYPHE_CREATE_NOTE=true`. By default each enrichment run creates a new Note, preserving history. Set `ONYPHE_OBSERVABLE_NOTE_REPLACE=true` to use a deterministic Note ID instead (derived from the observable's STIX ID), so re-enrichment replaces the existing Note rather than accumulating new ones.
+
+| | Indicator | Observable (`CREATE_NOTE=true`) |
+|---|---|---|
+| Note created | Always | Only when `ONYPHE_CREATE_NOTE=true` |
+| Default on re-enrichment | Replaces existing Note | Creates a new Note |
+| To replace on re-enrichment | — | Set `ONYPHE_OBSERVABLE_NOTE_REPLACE=true` |
 
 ### Auto Enrichment
 

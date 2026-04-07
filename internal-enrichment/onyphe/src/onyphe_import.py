@@ -1070,9 +1070,13 @@ class ONYPHEConnector:
             self.stix_objects.append(stix_observable)
 
             if self.config.create_note:
-                now = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+                if self.config.observable_note_replace:
+                    note_id = Note.generate_id(stix_id, "ONYPHE Results")
+                else:
+                    now = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+                    note_id = Note.generate_id(now, description)
                 note = stix2.Note(
-                    id=Note.generate_id(now, description),
+                    id=note_id,
                     type="note",
                     abstract="ONYPHE Results",
                     content=description,
@@ -1330,9 +1334,8 @@ class ONYPHEConnector:
                         results
                     )
 
-                created = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
                 note = stix2.Note(
-                    id=Note.generate_id(created, note_content),
+                    id=Note.generate_id(stix_entity["id"], note_title),
                     abstract=note_title,
                     content=note_content,
                     created_by_ref=self.onyphe_identity["standard_id"],

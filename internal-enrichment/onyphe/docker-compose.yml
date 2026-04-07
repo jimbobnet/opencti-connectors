@@ -18,6 +18,7 @@ services:
       - ONYPHE_DEFAULT_SCORE=50
       - ONYPHE_IMPORT_SEARCH_RESULTS=true
       - ONYPHE_CREATE_NOTE=false
+      - ONYPHE_OBSERVABLE_NOTE_REPLACE=false
       - ONYPHE_IMPORT_FULL_DATA=false
       - ONYPHE_PIVOT_THRESHOLD=10
       # Comma-separated list of OpenCTI types to create during enrichment.
