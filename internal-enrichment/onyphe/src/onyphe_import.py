@@ -511,7 +511,11 @@ class ONYPHEConnector:
                 )
 
             self.stix_objects.append(observable)
-            if observable["type"] in ["ipv4-addr", "ipv6-addr"]:
+            if relationship_type == "resolves-to":
+                # resolves-to: hostname/domain-name --resolves-to--> ip
+                source_id = observable["id"]
+                target_id = self.stix_entity["id"]
+            elif observable["type"] in ["ipv4-addr", "ipv6-addr"]:
                 source_id = observable["id"]
                 target_id = self.stix_entity["id"]
             else:
