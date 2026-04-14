@@ -18,6 +18,5 @@ onyphe:
   default_score: 50
   import_search_results: true
   create_note: false
-  observable_note_replace: false
   import_full_data: false
   pivot_threshold: 10

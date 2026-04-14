@@ -94,13 +94,6 @@ class ConfigConnector:
             default=False,
         )
 
-        self.observable_note_replace = get_config_variable(
-            "ONYPHE_OBSERVABLE_NOTE_REPLACE",
-            ["onyphe", "observable_note_replace"],
-            self.load,
-            default=False,
-        )
-
         self.pattern_type = get_config_variable(
             "ONYPHE_PATTERN_TYPE",
             ["onyphe", "pattern_type"],
